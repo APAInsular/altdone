@@ -1,0 +1,15 @@
+# Changelog
+
+## [1.0.0] - 2026-05-19
+
+### Added
+- Optimizador batch de imágenes a WebP con compresión automática
+- Análisis SEO con Claude Haiku: título, alt text, 
+  nombre de archivo y descripción
+- Editor IA de imágenes con Gemini 2.5 Flash Image
+- Proxy seguro con variables de entorno (.env)
+- Autenticación interna con APP_SECRET
+- Rate limiting y reintentos automáticos (429/529)
+- Exportación de metadatos SEO a CSV y TXT
+- Build compilado con Vite (sin Babel en navegador)
+- Helmet CSP, CORS restrictivo y validación de payload
