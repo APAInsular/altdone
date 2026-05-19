@@ -25,7 +25,7 @@ Platita Software.
 
 ## Instalación
 ```bash
-git clone https://github.com/platita-software/altdone
+git clone https://github.com/APAInsular/altdone
 cd altdone
 pnpm install
 cp .env.example .env
