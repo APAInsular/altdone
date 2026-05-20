@@ -69,13 +69,6 @@ const limiter = rateLimit({
 });
 app.use('/api', limiter);
 
-app.use('/api', (req, res, next) => {
-  const token = req.headers['x-app-token'];
-  if (!process.env.APP_SECRET || token !== process.env.APP_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-});
 
 const IMAGE_B64_LIMIT = 4 * 1024 * 1024;
 
@@ -217,9 +210,7 @@ app.post('/api/gemini', async (req, res) => {
 });
 
 const serveIndex = (_req, res) => {
-  const html = readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  const config = `<script>window.APP_TOKEN=${JSON.stringify(process.env.APP_SECRET || '')};</script>`;
-  res.send(html.replace('</head>', `${config}\n</head>`));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 };
 app.get('/', serveIndex);
 app.get('/index.html', serveIndex);
