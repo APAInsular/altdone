@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.2] - 2026-05-20
+### Removed
+- Botón de configuración de API Keys del header
+- Modal de configuración de keys del lado cliente
+- Las API keys se gestionan exclusivamente en el servidor via .env
+
 ## [1.0.1] - 2026-05-20
 ### Added
 - Documentación de despliegue en README.md

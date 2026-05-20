@@ -185,11 +185,6 @@ const styles = {
     color: active ? 'var(--violet)' : 'var(--gray-600)',
     boxShadow: active ? 'var(--shadow)' : 'none',
   }),
-  settingsBtn: {
-    background: 'none', border: '1px solid var(--gray-200)',
-    borderRadius: 8, padding: '6px 14px', fontSize: 13,
-    color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: 6,
-  },
   main: { maxWidth: 1100, margin: '0 auto', padding: '32px 24px' },
   card: {
     background: 'var(--white)', borderRadius: 12,
@@ -598,47 +593,9 @@ function EditorTab() {
   )
 }
 
-// ─── Settings Modal ───────────────────────────────────────────────────────────
-function SettingsModal({ onClose }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200,
-      backdropFilter: 'blur(4px)',
-    }} onClick={onClose}>
-      <div style={{ ...styles.card, maxWidth: 480, width: '90%', padding: 32 }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ fontFamily: 'Georgia, serif', fontSize: 22, marginBottom: 8 }}>Configuración</h2>
-        <p style={{ color: 'var(--gray-600)', fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
-          En producción las API keys se configuran en el servidor a través del archivo <code style={{ background: 'var(--gray-100)', padding: '1px 6px', borderRadius: 4 }}>.env</code>.
-        </p>
-        <div style={{ display: 'grid', gap: 16 }}>
-          <div style={{ padding: 16, background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--gray-200)' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-600)', marginBottom: 4 }}>ANTHROPIC_API_KEY</p>
-            <p style={{ fontSize: 13, color: 'var(--gray-400)' }}>Usada por Claude Haiku para análisis SEO</p>
-          </div>
-          <div style={{ padding: 16, background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--gray-200)' }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--gray-600)', marginBottom: 4 }}>GEMINI_API_KEY</p>
-            <p style={{ fontSize: 13, color: 'var(--gray-400)' }}>Usada por Gemini 2.0 Flash para edición de imágenes</p>
-          </div>
-          <div style={{ padding: 16, background: 'var(--violet-light)', borderRadius: 8 }}>
-            <p style={{ fontSize: 13, color: 'var(--violet)', lineHeight: 1.6 }}>
-              Copia <code>.env.example</code> a <code>.env</code>, añade tus claves y reinicia el servidor.
-              Las peticiones van a <code>/api/anthropic</code> y <code>/api/gemini</code> — nunca directamente a las APIs.
-            </p>
-          </div>
-        </div>
-        <button style={{ ...styles.btn(), width: '100%', justifyContent: 'center', marginTop: 24 }} onClick={onClose}>
-          Entendido
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── App ──────────────────────────────────────────────────────────────────────
 function App() {
   const [tab, setTab] = useState('optimizer')
-  const [showSettings, setShowSettings] = useState(false)
 
   return (
     <>
@@ -652,9 +609,6 @@ function App() {
             <button style={styles.tab(tab === 'optimizer')} onClick={() => setTab('optimizer')}>Optimizador</button>
             <button style={styles.tab(tab === 'editor')} onClick={() => setTab('editor')}>Editor IA</button>
           </div>
-          <button style={styles.settingsBtn} onClick={() => setShowSettings(true)}>
-            ⚙ API Keys
-          </button>
         </div>
       </header>
 
@@ -680,7 +634,6 @@ function App() {
         {tab === 'optimizer' ? <OptimizerTab /> : <EditorTab />}
       </main>
 
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>
   )
 }
