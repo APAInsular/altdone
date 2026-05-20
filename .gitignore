@@ -7,3 +7,4 @@ node_modules/
 /public/*
 !/public/.gitkeep
 DEPLOY_INTERNAL.md
+ROADMAP_INTERNAL.md

@@ -1,6 +1,6 @@
 {
   "name": "altdone",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Secure AI proxy for image SEO optimization and editing",
   "type": "module",
   "main": "server.js",

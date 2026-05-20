@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.3] - 2026-05-20
+### Added
+- ROADMAP.md público con fases de desarrollo
+- ROADMAP_INTERNAL.md interno con estrategia y métricas
+
 ## [1.0.2] - 2026-05-20
 ### Removed
 - Botón de configuración de API Keys del header
