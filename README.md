@@ -18,7 +18,7 @@ Platita Software.
 - Descarga de imágenes optimizadas con nombre SEO correcto
 
 ## Requisitos
-- Node.js 18+
+- Node.js 22+
 - pnpm
 - API Key de Anthropic (Claude Haiku)
 - API Key de Google Gemini
@@ -52,9 +52,42 @@ Nunca subas el archivo .env al repositorio.
 
 ## Seguridad
 - API keys solo en servidor vía .env
-- Token de autenticación interno (APP_SECRET)
-- Rate limiting, helmet, CORS restrictivo
-- Validación de payload y timeout en requests
+- CORS restrictivo a ALLOWED_ORIGIN
+- Rate limiting, helmet y validación de payload
+- Timeout en requests upstream
+
+## Deployment
+
+### Requisitos del servidor
+- Node.js 22+
+- pnpm
+- PM2 o Passenger (Plesk)
+- Nginx o Apache como reverse proxy
+
+### Pasos
+1. Clona el repo en tu servidor
+2. `pnpm install`
+3. Copia `.env.example` a `.env` y rellena las keys
+4. Crea `public/config.js` con:
+   ```js
+   window.APP_TOKEN='tu_app_secret';
+   ```
+   (este archivo está en `.gitignore`)
+5. `pnpm build`
+6. `node server.js` (o PM2/Passenger)
+
+### Actualizar a nueva versión
+```bash
+git pull origin main
+pnpm install
+pnpm build
+touch tmp/restart.txt  # si usas Passenger/Plesk
+# o: pm2 restart altdone  # si usas PM2
+```
+
+### Variables de entorno
+Ver `.env.example` para la lista completa.
+`ALLOWED_ORIGIN` debe apuntar a tu dominio en producción.
 
 ## Licencia
 MIT — Platita Software 2026

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1] - 2026-05-20
+### Added
+- Documentación de despliegue en README.md
+- Proceso de actualización para servidores con Plesk/Passenger
+### Fixed
+- Compatibilidad con Passenger: token inyectado via config.js
+- Permisos de archivos para usuario platita en Plesk
+
 ## [1.0.0] - 2026-05-19
 
 ### Added
