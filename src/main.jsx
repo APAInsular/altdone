@@ -61,7 +61,10 @@ function downloadBlob(blob, filename) {
 
 // ─── API calls ───────────────────────────────────────────────────────────────
 function apiHeaders() {
-  return { 'Content-Type': 'application/json', 'x-app-token': window.APP_TOKEN || '' }
+  return {
+    'Content-Type': 'application/json',
+    'x-app-token': import.meta.env.VITE_APP_TOKEN || ''
+  }
 }
 
 async function callAnthropic(body) {
