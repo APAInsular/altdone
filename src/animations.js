@@ -83,11 +83,14 @@ export function initSweep() {
   }
 
   function onEnter(e) {
+    if (!e.target || typeof e.target.closest !== 'function') return
     const btn = e.target.closest('.btn, .preset-chip, .nav-tab')
-    if (btn) playSweep(btn)
+    if (!btn) return
+    playSweep(btn)
   }
 
   function onLeave(e) {
+    if (!e.target || typeof e.target.closest !== 'function') return
     const btn = e.target.closest('.btn, .preset-chip, .nav-tab')
     if (!btn) return
     const sweep = ensureSweep(btn)
