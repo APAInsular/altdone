@@ -74,6 +74,13 @@ function error(res, estado, mensaje) {
   return res.status(estado).json({ error: mensaje });
 }
 
+/**
+ * fetch con tiempo máximo: aborta la petición si el proveedor no responde.
+ * @param {string} url
+ * @param {RequestInit} opciones
+ * @param {number} [ms=30000] Tiempo máximo en milisegundos
+ * @returns {Promise<Response>}
+ */
 async function fetchConTiempo(url, opciones, ms = 30000) {
   const controller = new AbortController();
   const temporizador = setTimeout(() => controller.abort(), ms);
@@ -84,7 +91,13 @@ async function fetchConTiempo(url, opciones, ms = 30000) {
   }
 }
 
-// Reintenta solo ante saturación del proveedor (429/503/529)
+/**
+ * Reintenta solo ante saturación del proveedor (429/503/529).
+ * @param {string} url
+ * @param {RequestInit} opciones
+ * @param {number[]} [esperas] Pausas entre reintentos, en milisegundos
+ * @returns {Promise<Response>} La última respuesta, sea cual sea su estado
+ */
 async function fetchConReintentos(url, opciones, esperas = [2000, 6000]) {
   for (let i = 0; ; i++) {
     const res = await fetchConTiempo(url, opciones);
@@ -104,11 +117,20 @@ function firmar(valor) {
   return crypto.createHmac('sha256', config.sesionSecret).update(valor).digest('base64url');
 }
 
+/**
+ * Valor de la cookie de sesión: «caducidad.firmaHMAC». No contiene datos personales.
+ * @returns {string}
+ */
 function crearSesion() {
   const caduca = Date.now() + SESION_MINUTOS * 60 * 1000;
   return `${caduca}.${firmar(String(caduca))}`;
 }
 
+/**
+ * Comprueba la cookie de sesión: firma HMAC correcta (comparación en tiempo constante) y sin caducar.
+ * @param {import('express').Request} req
+ * @returns {boolean}
+ */
 function sesionValida(req) {
   const valor = leerCookies(req)[SESION_COOKIE];
   if (!valor || !config.sesionSecret) return false;
@@ -121,6 +143,11 @@ function sesionValida(req) {
 
 // Cupo diario global por servicio: protege la clave compartida con firmas
 const cupos = { dia: '', seo: 0, edicion: 0 };
+/**
+ * Descuenta una petición del cupo diario global; se reinicia al cambiar de día (UTC).
+ * @param {'seo'|'edicion'} tipo
+ * @returns {boolean} false si el cupo del día está agotado
+ */
 function consumirCupo(tipo) {
   const hoy = new Date().toISOString().slice(0, 10);
   if (cupos.dia !== hoy) Object.assign(cupos, { dia: hoy, seo: 0, edicion: 0 });
@@ -130,6 +157,11 @@ function consumirCupo(tipo) {
   return true;
 }
 
+/**
+ * Valida la imagen que envía el navegador (tipo, tamaño y base64).
+ * @param {{imagen?: unknown, tipo?: unknown}} body
+ * @returns {string|null} Mensaje de error para el usuario, o null si es válida
+ */
 function validarImagen(body) {
   const { imagen, tipo } = body || {};
   if (typeof imagen !== 'string' || typeof tipo !== 'string') return 'Falta la imagen.';
@@ -227,6 +259,12 @@ function limpiarTexto(valor, max) {
   return typeof valor === 'string' ? valor.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max) : '';
 }
 
+/**
+ * Convierte el nombre propuesto por la IA en un nombre de archivo seguro: minúsculas,
+ * sin tildes, palabras separadas por guiones y extensión .webp.
+ * @param {unknown} valor
+ * @returns {string}
+ */
 function limpiarNombreArchivo(valor) {
   const base = limpiarTexto(valor, 120).toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')

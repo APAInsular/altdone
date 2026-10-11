@@ -3,29 +3,32 @@
 > Herramienta de optimización de imágenes con IA para WordPress,
 > parte del ecosistema Platita Software.
 
-## Estado actual — v1.0.2 ✅
+## Estado actual — v1.1.0
 
-- Optimizador batch de imágenes a WebP
-- Análisis SEO automático con Claude Haiku (título, alt,
-  nombre de archivo, descripción)
-- Editor IA de imágenes con instrucciones en lenguaje natural
-  (Gemini 2.5 Flash Image)
-- Proxy seguro con variables de entorno
-- Desplegado en producción: https://altdone.platita.es
+En producción: https://altdone.platita.es
+
+- Optimizador por lotes a WebP (en el navegador) con datos SEO generados con Claude
+  Haiku 4.5: título, texto alternativo, nombre de archivo y descripción
+- Editor con IA (Gemini 3.1 Flash Lite Image) con ajustes rápidos y comparador
+  antes/después
+- Exportación de los datos SEO a CSV
+- Identidad de Platita Software, accesibilidad WCAG 2.2 AA y estadísticas sin cookies
+- Servidor que protege las claves: modelos fijos, Turnstile, límites y cupos
 
 ---
 
-## Fase 1 — Identidad y Analytics
-> Estimación: 2-3 semanas
+## Fase 1 — Identidad, analítica y experiencia ✅
+> Completada en la v1.1.0 (octubre de 2026)
 
-- [ ] Identidad visual completa (logotipo, paleta, tipografía, favicon)
-- [ ] Integración Google Analytics 4 con eventos personalizados
-- [ ] Integración Google Search Console
-- [ ] Mejora de UI/UX general de la aplicación
+- [x] Identidad visual de Platita (logo de la submarca, paleta, tipografía, favicon)
+- [x] Estadísticas con Umami propio, sin cookies, con eventos de uso
+      (sustituye a Google Analytics 4: no necesita aviso de cookies)
+- [x] Mejora de UI/UX: la herramienta primero, móvil, accesibilidad WCAG 2.2 AA
+- [x] Seguridad: claves solo en el servidor, Turnstile, cabeceras y CSP
 
 ## Fase 2 — Landing page y contenido
-> Estimación: 3-4 semanas
 
+- [ ] Google Search Console
 - [ ] Home page con propuesta de valor, cómo funciona y ejemplos
 - [ ] Separación de rutas: / (landing) y /app (herramienta)
 - [ ] Sección de tutoriales y documentación de uso

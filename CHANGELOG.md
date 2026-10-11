@@ -1,5 +1,13 @@
 # Changelog
 
+## [Sin publicar]
+### Documentación
+- README al día con la v1.1.0: variables de entorno, API, estructura, seguridad y despliegue en Plesk
+  (fuera las instrucciones antiguas de PM2 y `config.js`).
+- ROADMAP: fase 1 completada (identidad, Umami en lugar de GA4, UI/UX); Search Console pasa a la fase 2.
+- CLAUDE.md con estructura, comandos, reglas del proyecto, cómo probar sin gastar cupo y despliegue.
+- JSDoc en las funciones principales de `server.js`.
+
 ## [1.1.0] - 2026-10-11 · Rediseño con la identidad de Platita
 ### Cambiado
 - Identidad de platita.es (paso 1): tokens de marca (azul `#006cb5`, papel/noche, tinta; el modo oscuro
