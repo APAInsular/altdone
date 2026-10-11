@@ -12,9 +12,8 @@ Platita Software.
   metadatos SEO (título, alt text, nombre de archivo, 
   descripción) con Claude Haiku
 - Editor IA: edita imágenes con instrucciones en lenguaje 
-  natural usando Gemini 2.5 Flash Image
+  natural usando Gemini 3.1 Flash Lite Image
 - Proxy seguro: las API keys nunca se exponen al navegador
-- Exportación CSV con todos los metadatos SEO
 - Descarga de imágenes optimizadas con nombre SEO correcto
 
 ## Requisitos
@@ -47,14 +46,15 @@ Nunca subas el archivo .env al repositorio.
 - Express.js — servidor proxy seguro
 - React + Vite — frontend compilado
 - Claude Haiku (Anthropic) — análisis SEO con IA
-- Gemini 2.5 Flash Image (Google) — edición de imágenes
+- Gemini 3.1 Flash Lite Image (Google) — edición de imágenes
 - Canvas API — conversión WebP en navegador
 
 ## Seguridad
-- API keys solo en servidor vía .env
-- CORS restrictivo a ALLOWED_ORIGIN
-- Rate limiting, helmet y validación de payload
-- Timeout en requests upstream
+- Claves de IA solo en el servidor vía `.env`; el servidor fija modelos y parámetros
+- Verificación con Cloudflare Turnstile y cookie de sesión firmada
+- Solo peticiones del mismo origen (`ALLOWED_ORIGIN`)
+- Límites por IP, cupos diarios globales, helmet y validación de entrada
+- Tiempo máximo en las llamadas a los proveedores
 
 ## Deployment
 
@@ -68,11 +68,8 @@ Nunca subas el archivo .env al repositorio.
 1. Clona el repo en tu servidor
 2. `pnpm install`
 3. Copia `.env.example` a `.env` y rellena las keys
-4. Crea `public/config.js` con:
-   ```js
-   window.APP_TOKEN='tu_app_secret';
-   ```
-   (este archivo está en `.gitignore`)
+4. Crea un widget de Cloudflare Turnstile para el dominio y pon sus claves en `.env`
+   (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`), junto con un `SESSION_SECRET` aleatorio
 5. `pnpm build`
 6. `node server.js` (o PM2/Passenger)
 

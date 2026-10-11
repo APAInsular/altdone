@@ -1032,3 +1032,12 @@ body.dark .btn-sweep {
 @media (min-width: 501px) and (max-width: 768px) {
   .image-thumb { width: 44px; height: 44px; }
 }
+
+/* ── VERIFICACIÓN (Turnstile, solo visible si pide interacción) ── */
+.verificacion {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+}
