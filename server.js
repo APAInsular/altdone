@@ -18,7 +18,7 @@ const config = {
   anthropicKey: process.env.ANTHROPIC_API_KEY,
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001',
   geminiKey: process.env.GEMINI_API_KEY,
-  geminiModel: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image',
+  geminiModel: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-lite-image',
   turnstileSecret: process.env.TURNSTILE_SECRET,
   turnstileSiteKey: process.env.TURNSTILE_SITE_KEY,
   turnstilePruebas: process.env.TURNSTILE_PRUEBAS === '1',

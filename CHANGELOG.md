@@ -14,6 +14,9 @@
 - Errores genéricos en español, sin detalles internos; JSON limitado a 6 MB; fuera `X-Powered-By`.
 - CSP de la app sin `'unsafe-inline'` en scripts ni CDNs sin uso; `frame-ancestors 'none'`.
 - Dependencias actualizadas: `pnpm audit` pasa de 11 vulnerabilidades (1 crítica) a ninguna.
+### Cambiado
+- Editor: modelo `gemini-3.1-flash-lite-image` (sustituto oficial de `gemini-2.5-flash-image`, en retirada).
+  Se puede cambiar con `GEMINI_IMAGE_MODEL` sin tocar código.
 ### Eliminado
 - Dependencias `cors` y `node-fetch` (se usa el `fetch` nativo de Node 22).
 

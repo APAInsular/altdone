@@ -551,7 +551,7 @@ function EditorTab() {
     <div>
       <div className="page-header">
         <h1>Editor con IA</h1>
-        <p>Edita imágenes con Gemini 2.5 Flash Image, exporta a WebP y obtén datos SEO</p>
+        <p>Edita imágenes con Gemini 3.1 Flash Lite Image, exporta a WebP y obtén datos SEO</p>
       </div>
 
       <div className="editor-layout">

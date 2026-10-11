@@ -12,7 +12,7 @@ Platita Software.
   metadatos SEO (título, alt text, nombre de archivo, 
   descripción) con Claude Haiku
 - Editor IA: edita imágenes con instrucciones en lenguaje 
-  natural usando Gemini 2.5 Flash Image
+  natural usando Gemini 3.1 Flash Lite Image
 - Proxy seguro: las API keys nunca se exponen al navegador
 - Descarga de imágenes optimizadas con nombre SEO correcto
 
@@ -46,7 +46,7 @@ Nunca subas el archivo .env al repositorio.
 - Express.js — servidor proxy seguro
 - React + Vite — frontend compilado
 - Claude Haiku (Anthropic) — análisis SEO con IA
-- Gemini 2.5 Flash Image (Google) — edición de imágenes
+- Gemini 3.1 Flash Lite Image (Google) — edición de imágenes
 - Canvas API — conversión WebP en navegador
 
 ## Seguridad
