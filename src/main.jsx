@@ -1,41 +1,24 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { createRoot } from 'react-dom/client'
-import gsap from 'gsap'
 import './index.css'
-import logoUrl from './assets/logo.svg'
-import { initFrame3D } from './frame3d.js'
-import { initParticles } from './particles.js'
-import {
-  initScrollProgress,
-  initMagneticGlow,
-  initSweep,
-  initScrollReveal,
-  initEntryAnimation,
-  toggleDark,
-  showToast,
-  confettiBurst,
-} from './animations.js'
+import logoAzul from './assets/platita-altdone-azul.svg'
+import logoBlanco from './assets/platita-altdone-blanco.svg'
+import { Icono } from './iconos.jsx'
+import { showToast } from './animations.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-async function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result.split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-async function compressToWebP(file, quality = 0.82) {
+// Convierte a WebP; con ladoMax, además reduce la imagen manteniendo la proporción
+async function compressToWebP(file, quality = 0.82, ladoMax = Infinity) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
+      const escala = Math.min(1, ladoMax / Math.max(img.naturalWidth, img.naturalHeight))
       const canvas = document.createElement('canvas')
-      canvas.width  = img.naturalWidth
-      canvas.height = img.naturalHeight
+      canvas.width  = Math.round(img.naturalWidth * escala)
+      canvas.height = Math.round(img.naturalHeight * escala)
       const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url)
         if (!blob) return reject(new Error('Canvas toBlob failed'))
@@ -56,6 +39,11 @@ function blobToBase64(blob) {
   })
 }
 
+// A la IA le basta una copia reducida: Claude trabaja a 1568 px como máximo y así se envía menos
+const LADO_ANALISIS = 1568
+const LADO_EDICION = 1536
+const copiaParaIA = (blob, lado) => compressToWebP(blob, 0.85, lado)
+
 function formatBytes(bytes) {
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
@@ -67,6 +55,32 @@ function downloadBlob(blob, filename) {
   const a = document.createElement('a')
   a.href = url; a.download = filename; a.click()
   URL.revokeObjectURL(url)
+}
+
+// Las zonas de subida se abren también con Intro o Espacio (WCAG 2.1.1)
+function alPulsarTecla(accion) {
+  return e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); accion() }
+  }
+}
+
+// ─── Estadísticas (Umami sin cookies) y enlaces ─────────────────────────────
+// Si Umami no carga (bloqueador, local), la app sigue igual
+function medir(evento, datos) {
+  try { window.umami?.track(evento, datos) } catch { /* sin estadísticas */ }
+}
+
+const PLATITA = 'https://platita.es'
+const utm = contenido => `?utm_source=altdone&utm_medium=herramienta&utm_content=${contenido}`
+
+// Aviso junto a cada zona de subida: qué sale del navegador y a quién
+function AvisoIA({ children }) {
+  return (
+    <p className="aviso-ia">
+      {children} No guardamos tus imágenes; no subas fotos con datos personales de otras personas.{' '}
+      <a href={`${PLATITA}/privacidad/#platita-altdone-altdoneplatitaes`} target="_blank" rel="noopener">Cómo tratamos tus datos</a>
+    </p>
+  )
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -161,12 +175,27 @@ function CompareSlider({ originalSrc, editedSrc }) {
   const lineRef = useRef()
   const handleRef = useRef()
 
+  const [pct, setPct] = useState(50)
+
+  function aplicar(valor) {
+    const v = Math.min(Math.max(valor, 0), 100)
+    afterRef.current.style.width = v + '%'
+    lineRef.current.style.left   = v + '%'
+    handleRef.current.style.left = v + '%'
+    setPct(Math.round(v))
+  }
+
   function setPos(clientX) {
     const r = wrapRef.current.getBoundingClientRect()
-    const pct = Math.min(Math.max((clientX - r.left) / r.width * 100, 0), 100)
-    afterRef.current.style.width = pct + '%'
-    lineRef.current.style.left   = pct + '%'
-    handleRef.current.style.left = pct + '%'
+    aplicar((clientX - r.left) / r.width * 100)
+  }
+
+  // Flechas, Inicio y Fin mueven la línea (control deslizante accesible)
+  function onKeyDown(e) {
+    const pasos = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5 }
+    if (e.key in pasos) { e.preventDefault(); aplicar(pct + pasos[e.key]) }
+    else if (e.key === 'Home') { e.preventDefault(); aplicar(0) }
+    else if (e.key === 'End') { e.preventDefault(); aplicar(100) }
   }
 
   function onPointerDown(e) { wrapRef.current.setPointerCapture(e.pointerId); setPos(e.clientX) }
@@ -177,6 +206,14 @@ function CompareSlider({ originalSrc, editedSrc }) {
     <div
       className="compare-wrap"
       ref={wrapRef}
+      role="slider"
+      tabIndex={0}
+      aria-label="Comparar la imagen editada con la original"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-valuetext={`${pct} % de la imagen editada a la vista`}
+      onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -198,16 +235,18 @@ function SEOField({ label, value }) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard.writeText(value)
+    medir('copiar_campo', { campo: label })
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
   return (
     <div className="seo-field">
       <span className="seo-label">{label}</span>
-      <div className="seo-value" onClick={copy}>
+      <button type="button" className="seo-value" onClick={copy} aria-label={`Copiar ${label}: ${value}`}>
         <span>{value}</span>
-        <span className="seo-copy">{copied ? '✓' : 'Copiar'}</span>
-      </div>
+        <span className="seo-copy" aria-hidden="true">{copied ? <><Icono nombre="check" /> Copiado</> : <><Icono nombre="copiar" /> Copiar</>}</span>
+      </button>
+      <span className="sr-only" role="status">{copied ? `${label} copiado` : ''}</span>
     </div>
   )
 }
@@ -215,17 +254,18 @@ function SEOField({ label, value }) {
 // ─── Image Card ───────────────────────────────────────────────────────────────
 function ImageCard({ item, onDownload, onRemove }) {
   const [expanded, setExpanded] = useState(false)
-  const cardRef = useRef()
-  const previewUrl = item.webpBlob
-    ? URL.createObjectURL(item.webpBlob)
-    : URL.createObjectURL(item.file)
-  const savings = item.webpSize
-    ? Math.round((1 - item.webpSize / item.originalSize) * 100)
+  // Una URL por imagen (antes se creaba una en cada render y no se liberaba)
+  const fuente = item.webpBlob || item.file
+  const previewUrl = useMemo(() => URL.createObjectURL(fuente), [fuente])
+  useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl])
+  // Diferencia de peso: si el WebP pesa más que el original, se dice tal cual
+  const cambio = item.webpSize
+    ? Math.round((item.webpSize / item.originalSize - 1) * 100)
     : null
 
   const statusLabel = {
     pending: 'Pendiente', compressing: 'Comprimiendo…',
-    analyzing: 'Analizando SEO…', done: 'Listo ✓', error: 'Error',
+    analyzing: 'Analizando SEO…', done: 'Listo', error: 'Error',
   }
 
   const badgeClass = {
@@ -234,48 +274,51 @@ function ImageCard({ item, onDownload, onRemove }) {
   }
 
   return (
-    <div className={`image-card ${item.status}`} ref={cardRef}>
-      <img className="image-thumb" src={previewUrl} alt={item.originalName} />
-      <div className="image-info" style={{ flex: 1, minWidth: 0 }}>
+    <li className={`image-card ${item.status}`}>
+      <img className="image-thumb" src={previewUrl} alt="" />
+      <div className="image-info">
         <div className="image-name">{item.originalName}</div>
         <div className="image-meta">
           <span className="image-size">
             {formatBytes(item.originalSize)}
             {item.webpSize && ` → ${formatBytes(item.webpSize)}`}
-            {savings !== null && <span style={{ color: 'var(--green-fg)', fontWeight: 700 }}> −{savings}%</span>}
+            {cambio !== null && (cambio <= 0
+              ? <span className="ahorro"> ({cambio === 0 ? 'igual' : `−${-cambio} %`})</span>
+              : <span className="ahorro ahorro--mas"> (+{cambio} %: el original ya estaba muy optimizado)</span>)}
           </span>
           <span className={`badge ${badgeClass[item.status] || 'badge-pending'}`}>
             {statusLabel[item.status] || item.status}
           </span>
         </div>
         {item.error && (
-          <div style={{ fontSize: 11.5, color: 'var(--red-fg)', marginTop: 3 }}>{item.error}</div>
+          <p className="mensaje-error mensaje-error--item">{item.error}</p>
         )}
         {item.seo && (
           <button
-            className="btn btn-ghost"
-            style={{ marginTop: 8, padding: '3px 10px', fontSize: 12 }}
+            className="btn btn-suave btn-sm image-toggle"
             onClick={() => setExpanded(v => !v)}
+            aria-expanded={expanded}
           >
-            {expanded ? '▲ Ocultar SEO' : '▼ Ver datos SEO'}
+            <Icono nombre={expanded ? 'arriba' : 'abajo'} />
+            {expanded ? 'Ocultar datos SEO' : 'Ver datos SEO'}
           </button>
         )}
         {expanded && item.seo && (
           <div className="seo-section">
             <SEOField label="Título SEO"       value={item.seo.title} />
-            <SEOField label="Alt text"         value={item.seo.alt} />
-            <SEOField label="Nombre archivo"   value={item.seo.filename} />
+            <SEOField label="Texto alternativo" value={item.seo.alt} />
+            <SEOField label="Nombre de archivo" value={item.seo.filename} />
             <SEOField label="Descripción"      value={item.seo.description} />
           </div>
         )}
       </div>
       {item.status === 'done' && (
-        <button className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => onDownload(item)}>
-          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <button className="btn btn-suave btn-icono" onClick={() => onDownload(item)} aria-label={`Descargar ${item.seo?.filename || item.originalName}`}>
+          <Icono nombre="descargar" />
         </button>
       )}
-      <button className="remove-btn" title="Eliminar" onClick={() => onRemove(item.id)}>&times;</button>
-    </div>
+      <button className="remove-btn" aria-label={`Quitar ${item.originalName}`} onClick={() => onRemove(item.id)}><Icono nombre="cerrar" /></button>
+    </li>
   )
 }
 
@@ -289,29 +332,23 @@ const PRESETS = [
   { label: 'Color vibrante',    prompt: 'Aumenta la saturación y viveza de los colores manteniendo un aspecto natural' },
 ]
 
+// CSV con los datos SEO, listo para Excel o para importar en WordPress
+function csvSeo(items) {
+  const celda = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const filas = [['archivo_original', 'nombre_archivo', 'titulo', 'texto_alternativo', 'descripcion']]
+  for (const i of items) filas.push([i.originalName, i.seo.filename, i.seo.title, i.seo.alt, i.seo.description])
+  // BOM para que Excel lea bien las tildes
+  return new Blob(['﻿' + filas.map(f => f.map(celda).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
+}
+
 function OptimizerTab() {
-  const [items, setItems]         = useState([])
+  const [items, setItems]           = useState([])
   const [processing, setProcessing] = useState(false)
-  const [quality, setQuality]     = useState(82)
-  const [drag, setDrag]           = useState(false)
-  const frame3dContainerRef       = useRef()
-  const dropzoneRef               = useRef()
-  const processBtnRef             = useRef()
-  const fileInputRef              = useRef()
-
-  // Init frame3d
-  useEffect(() => {
-    if (!frame3dContainerRef.current) return
-    const cleanup = initFrame3D(frame3dContainerRef.current, logoUrl)
-    return cleanup
-  }, [])
-
-  // Init particle network
-  useEffect(() => {
-    if (!dropzoneRef.current) return
-    const cleanup = initParticles(dropzoneRef.current)
-    return cleanup
-  }, [])
+  const [progreso, setProgreso]     = useState(null)
+  const [quality, setQuality]       = useState(82)
+  const [drag, setDrag]             = useState(false)
+  const [anuncio, setAnuncio]       = useState('')
+  const fileInputRef                = useRef()
 
   const addFiles = useCallback(newFiles => {
     const images = Array.from(newFiles).filter(f => f.type.startsWith('image/'))
@@ -329,152 +366,154 @@ function OptimizerTab() {
     })
   }, [])
 
-  const processAll = async () => {
+  const procesar = async pending => {
     setProcessing(true)
-    const pending = items.filter(i => i.status === 'pending')
 
-    for (const item of pending) {
-      setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'compressing' } : x))
+    let correctas = 0
+    for (const [n, item] of pending.entries()) {
+      setProgreso({ actual: n + 1, total: pending.length })
+      setAnuncio(`Procesando imagen ${n + 1} de ${pending.length}`)
+      setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'compressing', error: null } : x))
       try {
+        // WebP a tamaño completo para descargar; a la IA solo va una copia reducida
         const webpBlob = await compressToWebP(item.file, quality / 100)
-        const webpB64  = await blobToBase64(webpBlob)
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'analyzing', webpBlob, webpSize: webpBlob.size } : x))
-        const seo = await analyzeSEO(webpB64, 'image/webp')
+        const copia = await copiaParaIA(webpBlob, LADO_ANALISIS)
+        const seo = await analyzeSEO(await blobToBase64(copia), 'image/webp')
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'done', seo } : x))
+        correctas++
       } catch (err) {
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'error', error: err.message } : x))
       }
     }
 
-    showToast('Imágenes procesadas correctamente')
-    if (processBtnRef.current) confettiBurst(processBtnRef.current)
+    const errores = pending.length - correctas
+    medir('procesar', { imagenes: pending.length, correctas, errores })
+    // El aviso dice lo que ha pasado de verdad, también si hubo errores
+    const resumen = errores
+      ? `${correctas} de ${pending.length} imágenes listas; ${errores} con error`
+      : (pending.length === 1 ? 'Imagen lista' : `${pending.length} imágenes listas`)
+    setAnuncio('')
+    setProgreso(null)
+    showToast(resumen)
     setProcessing(false)
   }
 
   const downloadItem = item => {
     if (!item.webpBlob) return
+    medir('descargar', { origen: 'optimizador' })
     const name = item.seo?.filename || item.originalName.replace(/\.[^.]+$/, '') + '.webp'
     downloadBlob(item.webpBlob, name)
   }
 
-  const downloadAll = () => items.filter(i => i.status === 'done').forEach(downloadItem)
+  const listas = items.filter(i => i.status === 'done')
+  const downloadAll = () => listas.forEach(downloadItem)
+  const downloadCsv = () => {
+    medir('descargar_csv', { imagenes: listas.length })
+    downloadBlob(csvSeo(listas), 'altdone-datos-seo.csv')
+  }
+  const processAll = () => procesar(items.filter(i => i.status === 'pending'))
+  // Reintenta directamente las imágenes que fallaron
+  const reintentar = () => procesar(items.filter(i => i.status === 'error'))
 
   const removeItem = id => setItems(prev => prev.filter(x => x.id !== id))
   const reset      = () => setItems([])
 
-  const doneCount    = items.filter(i => i.status === 'done').length
   const pendingCount = items.filter(i => i.status === 'pending').length
+  const errorCount   = items.filter(i => i.status === 'error').length
+  const hayImagenes  = items.length > 0
 
   return (
     <>
-      {/* ── Hero: frame 3D + dropzone ── */}
-      <div className="opt-hero">
-        <div className="opt-hero-left">
-          <div ref={frame3dContainerRef} />
-          <div className="page-header">
-            <h1>Optimizador batch</h1>
-            <p>Convierte a WebP y genera alt text, nombre de archivo y keywords con Claude Haiku</p>
-          </div>
-        </div>
-
-        <div className="opt-hero-right">
-          <div
-            className={`dropzone${drag ? ' drag-over' : ''}`}
-            ref={dropzoneRef}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => { e.preventDefault(); setDrag(true) }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              style={{ display: 'none' }}
-              onChange={e => { addFiles(e.target.files); e.target.value = '' }}
-            />
-            <div className="drop-icon-wrap">
-              <svg viewBox="0 0 24 24">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-            </div>
-            <div className="drop-title">Arrastra imágenes aquí</div>
-            <div className="drop-hint">PNG · JPG · WEBP · GIF &nbsp;·&nbsp; Múltiples archivos</div>
-            <span className="drop-cta">o haz clic para seleccionar</span>
-          </div>
-        </div>
+      <div className="page-header">
+        <h1>Optimiza tus imágenes para WordPress</h1>
+        <p>Te las devolvemos en WebP, con título, texto alternativo, nombre de archivo y descripción listos para pegar.</p>
       </div>
 
-      {/* ── Lista de imágenes ── */}
-      {items.length > 0 && (
-        <div id="listSection">
-          <div className="file-counter">
-            <svg viewBox="0 0 24 24">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            <span>{items.length === 1 ? '1 archivo' : `${items.length} archivos`}</span>
+      <div
+        className={`dropzone${drag ? ' drag-over' : ''}${hayImagenes ? ' dropzone--compacta' : ''}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => fileInputRef.current?.click()}
+        onKeyDown={alPulsarTecla(() => fileInputRef.current?.click())}
+        onDragOver={e => { e.preventDefault(); setDrag(true) }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          style={{ display: 'none' }}
+          onChange={e => { addFiles(e.target.files); e.target.value = '' }}
+        />
+        <div className="hexagono"><Icono nombre="subir" /></div>
+        <div className="drop-texto">
+          <div className="drop-title">{hayImagenes ? 'Añade más imágenes' : 'Arrastra tus imágenes aquí'}</div>
+          <div className="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · los GIF animados pierden la animación</div>
+        </div>
+        <span className="drop-cta">o haz clic para elegirlas</span>
+      </div>
+      <AvisoIA>La conversión a WebP se hace en tu navegador; para los datos SEO, se envía a Anthropic (Claude) una copia reducida.</AvisoIA>
+
+      {/* Región viva: lo que pasa durante el procesado, para lectores de pantalla */}
+      <p className="sr-only" role="status">{anuncio}</p>
+
+      {hayImagenes && (
+        <section className="lote" aria-labelledby="lote-titulo">
+          <div className="lote-cabecera">
+            <h2 id="lote-titulo">{items.length === 1 ? '1 imagen' : `${items.length} imágenes`}</h2>
+            <label className="quality-control">
+              Calidad WebP
+              <input
+                type="range" min={50} max={100} value={quality}
+                aria-valuetext={`${quality} %`}
+                onChange={e => setQuality(+e.target.value)}
+              />
+              <strong aria-hidden="true">{quality}%</strong>
+            </label>
           </div>
 
-          <div className="image-list">
+          {/* Barra de acciones: en el móvil queda fija abajo */}
+          <div className="actions">
+            {pendingCount > 0 && (
+              <button className="btn btn-primary" onClick={processAll} disabled={processing}>
+                <Icono nombre="procesar" />
+                {processing && progreso
+                  ? `Procesando ${progreso.actual} de ${progreso.total}…`
+                  : `Procesar ${pendingCount === 1 ? '1 imagen' : `${pendingCount} imágenes`}`}
+              </button>
+            )}
+            {!processing && errorCount > 0 && (
+              <button className="btn btn-secundario" onClick={reintentar}>
+                Reintentar {errorCount === 1 ? 'la que falló' : `las ${errorCount} que fallaron`}
+              </button>
+            )}
+            {listas.length > 1 && (
+              <button className="btn btn-secundario" onClick={downloadAll}>
+                <Icono nombre="descargar" />
+                Descargar todas ({listas.length})
+              </button>
+            )}
+            {listas.length > 0 && (
+              <button className="btn btn-secundario" onClick={downloadCsv}>
+                <Icono nombre="archivo" />
+                Datos SEO en CSV
+              </button>
+            )}
+            <button className="btn btn-suave" onClick={reset} disabled={processing}>
+              <Icono nombre="papelera" />
+              Vaciar
+            </button>
+          </div>
+
+          <ul className="image-list">
             {items.map(item => (
               <ImageCard key={item.id} item={item} onDownload={downloadItem} onRemove={removeItem} />
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Acciones ── */}
-      {items.length > 0 && (
-        <div className="actions">
-          {pendingCount > 0 && (
-            <button
-              className="btn btn-primary"
-              ref={processBtnRef}
-              onClick={processAll}
-              disabled={processing}
-            >
-              <svg viewBox="0 0 24 24">
-                <polyline points="13 2 13 9 20 9"/>
-                <path d="M11 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
-                <polyline points="18 5 22 9 18 13"/>
-              </svg>
-              {processing ? 'Procesando…' : 'Procesar imágenes'}
-            </button>
-          )}
-
-          {doneCount > 1 && (
-            <button className="btn btn-ghost" onClick={downloadAll}>
-              <svg viewBox="0 0 24 24">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Descargar todos ({doneCount})
-            </button>
-          )}
-
-          <button className="btn btn-ghost" onClick={reset}>
-            <svg viewBox="0 0 24 24">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14H6L5 6"/>
-              <path d="M10 11v6M14 11v6"/>
-            </svg>
-            Limpiar todo
-          </button>
-
-          <div className="quality-control">
-            Calidad WebP
-            <input
-              type="range" min={50} max={100} value={quality}
-              onChange={e => setQuality(+e.target.value)}
-            />
-            <strong>{quality}%</strong>
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
     </>
   )
@@ -511,8 +550,9 @@ function EditorTab() {
     if (!file || !prompt.trim()) return
     setLoading(true); setError(null); setResult(null); setSeo(null)
     try {
-      const b64 = await fileToBase64(file)
-      const { b64: resultB64, mime: resultMime } = await editWithGemini(b64, file.type, prompt)
+      // Copia reducida en WebP: evita el límite de 4 MB con fotos grandes del móvil
+      const copia = await copiaParaIA(file, LADO_EDICION)
+      const { b64: resultB64, mime: resultMime } = await editWithGemini(await blobToBase64(copia), 'image/webp', prompt)
 
       const byteChars = atob(resultB64)
       const byteArr = new Uint8Array(byteChars.length)
@@ -522,8 +562,10 @@ function EditorTab() {
       const webpBlob = await compressToWebP(blob)
       const webpB64  = await blobToBase64(webpBlob)
       setResult({ blob: webpBlob, src: 'data:image/webp;base64,' + webpB64 })
+      medir('editar', { ajuste: activePreset || 'propio', resultado: 'ok' })
     } catch (err) {
       setError(err.message)
+      medir('editar', { ajuste: activePreset || 'propio', resultado: 'error' })
     }
     setLoading(false)
   }
@@ -535,6 +577,7 @@ function EditorTab() {
       const b64  = await blobToBase64(result.blob)
       const data = await analyzeSEO(b64, 'image/webp')
       setSeo(data)
+      medir('seo_editor', { resultado: 'ok' })
     } catch (err) {
       setSeo({ error: err.message })
     }
@@ -545,13 +588,14 @@ function EditorTab() {
     if (!result) return
     const name = seo?.filename || (file?.name.replace(/\.[^.]+$/, '') || 'imagen') + '-editada.webp'
     downloadBlob(result.blob, name)
+    medir('descargar', { origen: 'editor' })
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1>Editor con IA</h1>
-        <p>Edita imágenes con Gemini 3.1 Flash Lite Image, exporta a WebP y obtén datos SEO</p>
+        <h1>Edita una imagen con IA</h1>
+        <p>Elige un ajuste o describe el cambio, compara el antes y el después y descárgala en WebP con sus datos SEO.</p>
       </div>
 
       <div className="editor-layout">
@@ -560,7 +604,11 @@ function EditorTab() {
           <div
             className={`editor-picker${file ? ' has-image' : ''}`}
             ref={editorPickerRef}
+            role="button"
+            tabIndex={0}
+            aria-label={file ? `Cambiar la imagen (ahora: ${file.name})` : undefined}
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={alPulsarTecla(() => fileInputRef.current?.click())}
           >
             <input
               ref={fileInputRef}
@@ -573,9 +621,9 @@ function EditorTab() {
               <img src={previewSrc} alt={file.name} />
             ) : (
               <>
-                <div className="picker-icon">✏️</div>
-                <div className="picker-title">Selecciona una imagen</div>
-                <div className="picker-hint">Una imagen para editar con IA</div>
+                <div className="hexagono"><Icono nombre="imagen" /></div>
+                <div className="picker-title" id="picker-title">Elige una imagen</div>
+                <div className="picker-hint" id="picker-hint">PNG, JPG, WEBP o GIF · máx. 4 MB</div>
               </>
             )}
           </div>
@@ -585,8 +633,7 @@ function EditorTab() {
               {file.name} &nbsp;·&nbsp; {formatBytes(file.size)}
               &nbsp;·&nbsp;
               <button
-                className="btn btn-ghost"
-                style={{ padding: '2px 8px', fontSize: 11, display: 'inline-flex' }}
+                className="btn btn-suave btn-sm"
                 onClick={() => { setFile(null); setPreviewSrc(null); setResult(null); setSeo(null) }}
               >
                 Cambiar
@@ -594,8 +641,10 @@ function EditorTab() {
             </div>
           )}
 
+          <AvisoIA>Para editarla, la imagen y tus instrucciones se envían a Google (Gemini); si pides los datos SEO, a Anthropic (Claude).</AvisoIA>
+
           <div className="presets-card">
-            <div className="presets-label">Presets rápidos</div>
+            <div className="presets-label">Ajustes rápidos</div>
             <div className="presets-list" id="presetsList">
               {PRESETS.map(p => (
                 <button
@@ -608,17 +657,20 @@ function EditorTab() {
                 </button>
               ))}
             </div>
+            <label className="campo-etiqueta" htmlFor="promptTextarea">Qué quieres cambiar</label>
             <textarea
               id="promptTextarea"
+              aria-describedby="prompt-ayuda"
               className="prompt-textarea"
-              placeholder="Describe qué quieres hacer con la imagen…"
+              placeholder="Por ejemplo: quita el fondo y céntrala sobre blanco"
               rows={4}
               value={prompt}
               maxLength={500}
               onChange={e => setPrompt(e.target.value)}
             />
+            <p className="campo-ayuda" id="prompt-ayuda">{prompt.length}/500 caracteres</p>
             {error && (
-              <div style={{ color: 'var(--red-fg)', fontSize: 13, marginBottom: 10 }}>{error}</div>
+              <p className="mensaje-error" role="alert">{error}</p>
             )}
             <button
               className="btn btn-primary btn-full"
@@ -626,13 +678,17 @@ function EditorTab() {
               onClick={edit}
               disabled={!file || !prompt.trim() || loading}
             >
-              {loading ? '⏳ Editando con Gemini…' : '🪄 Editar imagen'}
+              <Icono nombre="varita" />
+              {loading ? 'Editando…' : 'Editar imagen'}
             </button>
           </div>
         </div>
 
         {/* Columna derecha: resultado */}
-        <div className="editor-result" id="editorResult">
+        <div className="editor-result" id="editorResult" aria-busy={loading}>
+          <p className="sr-only" role="status">
+            {loading ? 'Editando la imagen…' : result ? 'Imagen editada lista. Compárala con la original y descárgala.' : ''}
+          </p>
           {loading && (
             <div className="result-loading">
               <div className="spinner" />
@@ -641,7 +697,7 @@ function EditorTab() {
           )}
 
           {!result && !loading && (
-            <p className="result-placeholder">El resultado aparecerá aquí</p>
+            <p className="result-placeholder">Aquí verás el antes y el después</p>
           )}
 
           {result && !loading && (
@@ -652,18 +708,19 @@ function EditorTab() {
 
               <div className="result-actions">
                 <button className="btn btn-primary" onClick={download}>
-                  <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <Icono nombre="descargar" />
                   Descargar WebP
                 </button>
-                <button className="btn btn-ghost" onClick={getSEO} disabled={analyzingSeo}>
-                  {analyzingSeo ? '⏳ Analizando…' : '🔍 Analizar SEO'}
+                <button className="btn btn-secundario" onClick={getSEO} disabled={analyzingSeo}>
+                  <Icono nombre="buscar" />
+                  {analyzingSeo ? 'Analizando…' : 'Obtener datos SEO'}
                 </button>
               </div>
 
               {seo && (
                 <div className="result-meta">
                   {seo.error ? (
-                    <p style={{ color: 'var(--red-fg)', fontSize: 13 }}>{seo.error}</p>
+                    <p className="mensaje-error" role="alert">{seo.error}</p>
                   ) : (
                     <>
                       <div className="result-meta-row">
@@ -695,111 +752,112 @@ function EditorTab() {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
+const PESTANAS = [
+  { id: 'optimizer', tabId: 'tab-opt', panelId: 'page-opt', nombre: 'Optimizador', evento: 'optimizador' },
+  { id: 'editor', tabId: 'tab-ed', panelId: 'page-ed', nombre: 'Editor IA', evento: 'editor' },
+]
+
+// Tema inicial: el que eligió la persona antes o, si no, el del sistema
+function temaInicial() {
+  try {
+    const guardado = localStorage.getItem('altdone-tema')
+    if (guardado) return guardado === 'oscuro'
+  } catch { /* almacenamiento no disponible */ }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
 function App() {
   const [tab, setTab]     = useState('optimizer')
-  const [isDark, setIsDark] = useState(false)
-  const themeBtnRef       = useRef()
-  const overlayRef        = useRef()
+  const [isDark, setIsDark] = useState(temaInicial)
   const isFirstDarkRef    = useRef(true)
 
-  // Animaciones globales al montar
+  // Modo oscuro: se guarda la elección a partir del primer cambio
   useEffect(() => {
-    initEntryAnimation()
-    const cleanupProgress = initScrollProgress()
-    const cleanupSweep    = initSweep()
-    const cleanupReveal   = initScrollReveal()
-    return () => {
-      cleanupProgress()
-      cleanupSweep()
-      cleanupReveal()
-    }
-  }, [])
-
-  // Magnetic glow tras cada render (tab puede cambiar)
-  useEffect(() => {
-    initMagneticGlow()
-  })
-
-  // Dark mode con GSAP (omitir en primer render)
-  useEffect(() => {
+    document.body.classList.toggle('dark', isDark)
     if (isFirstDarkRef.current) { isFirstDarkRef.current = false; return }
-    toggleDark(isDark, themeBtnRef.current, overlayRef.current)
+    try { localStorage.setItem('altdone-tema', isDark ? 'oscuro' : 'claro') } catch { /* sin almacenamiento */ }
   }, [isDark])
 
-  // Animación de entrada para el tab activo al cambiar
-  const isFirstTabRef = useRef(true)
-  useEffect(() => {
-    if (isFirstTabRef.current) { isFirstTabRef.current = false; return }
-    const page = document.querySelector('.page.active')
-    if (page) {
-      gsap.fromTo(page, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.32, ease: 'power3.out' })
-    }
-  }, [tab])
+  function cambiarPestana(id) {
+    setTab(id)
+    medir('pestana', { pestana: PESTANAS.find(p => p.id === id).evento })
+  }
+
+  // Flechas, Inicio y Fin recorren las pestañas (patrón de pestañas de WAI-ARIA)
+  function teclaPestana(e) {
+    const i = PESTANAS.findIndex(p => p.id === tab)
+    const destino = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: PESTANAS.length - 1 }[e.key]
+    if (destino === undefined) return
+    e.preventDefault()
+    const p = PESTANAS[(destino + PESTANAS.length) % PESTANAS.length]
+    cambiarPestana(p.id)
+    document.getElementById(p.tabId)?.focus()
+  }
 
   return (
     <>
-      <div id="darkOverlay" ref={overlayRef} />
+      <a className="saltar" href="#contenido">Ir al contenido</a>
 
       <nav>
-        <a className="logo" href="#">
-          <img src={logoUrl} alt="Platita Servicios Informáticos" />
+        <a className="logo" href="/">
+          <img className="logo-claro" src={logoAzul} alt="Platita AltDone" />
+          <img className="logo-oscuro" src={logoBlanco} alt="Platita AltDone" />
         </a>
 
-        <div className="nav-pills">
-          <a
-            className={`nav-tab${tab === 'optimizer' ? ' active' : ''}`}
-            href="#"
-            id="tab-opt"
-            onClick={e => { e.preventDefault(); setTab('optimizer') }}
-          >
-            Optimizador
-          </a>
-          <a
-            className={`nav-tab${tab === 'editor' ? ' active' : ''}`}
-            href="#"
-            id="tab-ed"
-            onClick={e => { e.preventDefault(); setTab('editor') }}
-          >
-            Editor IA
-          </a>
+        <div className="nav-pills" role="tablist" aria-label="Herramientas">
+          {PESTANAS.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              id={p.tabId}
+              aria-selected={tab === p.id}
+              aria-controls={p.panelId}
+              tabIndex={tab === p.id ? 0 : -1}
+              className={`nav-tab${tab === p.id ? ' active' : ''}`}
+              onClick={() => cambiarPestana(p.id)}
+              onKeyDown={teclaPestana}
+            >
+              {p.nombre}
+            </button>
+          ))}
         </div>
 
         <button
           className="theme-btn"
-          ref={themeBtnRef}
           id="themeBtn"
-          aria-label="Cambiar modo oscuro/claro"
+          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           onClick={() => setIsDark(d => !d)}
         >
-          <span className="theme-icon theme-icon--sun">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1"  x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22"  x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1"  y1="12" x2="3"  y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-          </span>
-          <span className="theme-icon theme-icon--moon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          </span>
+          <span className="theme-icon theme-icon--sun"><Icono nombre="sol" /></span>
+          <span className="theme-icon theme-icon--moon"><Icono nombre="luna" /></span>
         </button>
       </nav>
 
-      <main>
-        <div className={`page${tab === 'optimizer' ? ' active' : ''}`} id="page-opt">
+      <main id="contenido" tabIndex={-1}>
+        <div className={`page${tab === 'optimizer' ? ' active' : ''}`} id="page-opt" role="tabpanel" aria-labelledby="tab-opt">
           <OptimizerTab />
         </div>
-        <div className={`page${tab === 'editor' ? ' active' : ''}`} id="page-ed">
+        <div className={`page${tab === 'editor' ? ' active' : ''}`} id="page-ed" role="tabpanel" aria-labelledby="tab-ed">
           <EditorTab />
         </div>
       </main>
+
+      <footer className="pie">
+        <div className="pie-dentro">
+          <a className="pie-marca" href={`${PLATITA}/${utm('pie')}`}>
+            <img src={logoBlanco} alt="Platita Software" />
+          </a>
+          <p className="pie-texto">
+            Una herramienta de <a href={`${PLATITA}/${utm('pie')}`}>Platita Software</a>, en Canarias.
+          </p>
+          <ul className="pie-legal">
+            <li><a href={`${PLATITA}/aviso-legal/`}>Aviso legal</a></li>
+            <li><a href={`${PLATITA}/privacidad/#platita-altdone-altdoneplatitaes`}>Privacidad</a></li>
+            <li><a href={`${PLATITA}/cookies/`}>Cookies</a></li>
+          </ul>
+        </div>
+      </footer>
     </>
   )
 }
