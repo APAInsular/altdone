@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.1] - 2026-10-11
+### Añadido
+- SEO técnico para Search Console: `robots.txt` (con el sitemap y sin `/api/`), `sitemap.xml` con la portada,
+  `<link rel="canonical">`, Open Graph y Twitter con imagen social propia (`og-altdone.png`, 1200×630) y
+  datos estructurados `WebApplication` (JSON-LD).
+### Corregido
+- Cualquier ruta inexistente devolvía la app con un 200 (posibles duplicados en Google): ahora responde 404 con
+  una página propia (`noindex`, estilos en hoja aparte por la CSP).
+
+
 ## [1.2.0] - 2026-10-11
 ### Añadido
 - Aviso en el momento del éxito: tras la primera descarga de la sesión (imágenes, imagen editada o CSV), una

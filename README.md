@@ -90,7 +90,8 @@ src/index.css        Estilos con los tokens de marca de Platita
 src/iconos.jsx       Iconos SVG propios
 src/animations.js    Aviso flotante y preferencia de movimiento reducido
 src/assets/          Logos de la submarca y fuentes Exo 2 y Roboto
-static/              Favicon y .well-known/security.txt (se copian tal cual a public/)
+static/              Favicon, robots.txt, sitemap.xml, imagen social, página 404 y
+                     .well-known/security.txt (se copian tal cual a public/)
 public/              Salida de `pnpm build` (no está en git)
 deploy/              Directivas de nginx y Apache para Plesk
 ```

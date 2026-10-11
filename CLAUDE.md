@@ -12,7 +12,9 @@ Detalle funcional, variables y API en README.md; historial en CHANGELOG.md.
 - `src/main.jsx` — toda la app React (optimizador, editor, pestañas, Turnstile, Umami).
 - `src/index.css` — tokens de marca de Platita al principio; no escribir colores sueltos.
 - `src/iconos.jsx` — iconos SVG (trazo 1,8). Nada de emojis en la interfaz.
-- `static/` — favicon y `.well-known/security.txt`; Vite los copia a `public/`.
+- `static/` — favicon, robots.txt, sitemap.xml (actualizar `lastmod` si cambia la portada), imagen
+  social, 404.html y `.well-known/security.txt`; Vite los copia a `public/`. La app solo tiene `/`:
+  cualquier otra ruta da 404.
 - `public/` — salida de `pnpm build`, fuera de git.
 - `deploy/` — directivas de nginx y Apache que hay que pegar a mano en Plesk.
 
