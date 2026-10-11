@@ -34,6 +34,15 @@
   - Calidad WebP con etiqueta; copiar un dato SEO es un botón; en móvil vuelven las etiquetas de estado.
   - Movimiento reducido respetado (GSAP, partículas, confeti y transiciones).
   - El tema inicial sigue al sistema y se recuerda la elección.
+- Seguridad (paso 4): cabeceras alineadas con platita.es en las directivas de nginx del dominio
+  (`deploy/directivas-nginx-produccion.conf`, ya aplicadas en Plesk): CSP mínima obligatoria, CSP completa en
+  modo informe (`style-src 'self'`, sin `unsafe-inline`), `X-Frame-Options: DENY`, `nosniff`,
+  `Referrer-Policy`, `Permissions-Policy` y `Cross-Origin-Opener-Policy`. Antes el HTML no llevaba ninguna.
+- Endpoint `/api/csp-informe` para los avisos de la CSP: registra directiva, recurso y página sin parámetros
+  de URL, con límite de 30 por minuto.
+- `/.well-known/security.txt`.
+- Fuera `X-Powered-By: Phusion Passenger` (directiva de Apache en `deploy/directivas-apache-produccion.conf`)
+  y helmet deja de duplicar las cabeceras que ya pone nginx.
 ### Eliminado
 - Marco 3D giratorio del logo (el manual de marca no permite rotar ni deformar el logo).
 

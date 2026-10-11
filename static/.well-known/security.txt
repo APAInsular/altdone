@@ -1,0 +1,5 @@
+# Si encuentras una vulnerabilidad en altdone.platita.es, escríbenos. Respondemos en días laborables.
+Contact: mailto:hola@platita.es
+Expires: 2027-10-11T00:00:00.000Z
+Preferred-Languages: es, en
+Canonical: https://altdone.platita.es/.well-known/security.txt

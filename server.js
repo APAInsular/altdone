@@ -44,8 +44,8 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", 'https://challenges.cloudflare.com', 'https://stats.javierjg.es'],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      styleSrc: ["'self'"],
+      fontSrc: ["'self'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
       connectSrc: ["'self'", 'https://stats.javierjg.es'],
       frameSrc: ['https://challenges.cloudflare.com'],
@@ -53,8 +53,12 @@ app.use(helmet({
       frameAncestors: ["'none'"],
     },
   },
-  frameguard: { action: 'deny' },
   crossOriginEmbedderPolicy: false,
+  // Las pone nginx para todo el sitio (deploy/directivas-nginx-produccion.conf): así no salen duplicadas
+  frameguard: false,
+  referrerPolicy: false,
+  xContentTypeOptions: false,
+  crossOriginOpenerPolicy: false,
 }));
 
 app.use((req, res, next) => {
@@ -336,6 +340,25 @@ app.post('/api/editar', mismoOrigen, requiereSesion, limiteEdicion, async (req, 
     error(res, 502, 'No se pudo editar la imagen. Inténtalo de nuevo.');
   }
 });
+
+// Informes de la CSP (de momento en modo informe): se registran resumidos, sin datos del visitante
+const limiteInformes = limite(1, 30, 'Demasiados informes.');
+app.post('/api/csp-informe', limiteInformes,
+  express.json({ limit: '16kb', type: ['application/csp-report', 'application/reports+json', 'application/json'] }),
+  (req, res) => {
+    // report-uri envía {"csp-report": {...}}; report-to envía una lista de {type, body}
+    const informes = Array.isArray(req.body)
+      ? req.body.filter(r => r?.type === 'csp-violation').map(r => r.body)
+      : [req.body?.['csp-report']];
+    for (const inf of informes.filter(Boolean).slice(0, 5)) {
+      const directiva = inf['violated-directive'] || inf.effectiveDirective || inf['effective-directive'] || '?';
+      const bloqueado = inf['blocked-uri'] || inf.blockedURL || '?';
+      const pagina = inf['document-uri'] || inf.documentURL || '?';
+      const corto = valor => String(valor).replace(/[?#].*$/, '').slice(0, 200);
+      console.warn(`[csp] ${corto(directiva)} bloquea ${corto(bloqueado)} en ${corto(pagina)}`);
+    }
+    res.status(204).end();
+  });
 
 app.use('/api', (_req, res) => error(res, 404, 'Ruta no encontrada.'));
 
