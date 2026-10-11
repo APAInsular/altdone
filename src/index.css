@@ -680,7 +680,7 @@ body.dark .btn-suave { background: rgb(238 244 249 / 0.1); color: var(--claro); 
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   font-size: 1rem;
-  font-family: var(--f-titulo);
+  font-family: var(--f-texto);
   color: var(--text-primary);
   background: var(--bg);
   outline: none;
@@ -1012,7 +1012,7 @@ body.dark .btn-sweep {
   .logo img { height: 34px; }
   .image-card { padding: 10px 12px; gap: 10px; }
   .image-thumb { width: 42px; height: 42px; }
-  .badge { display: none; }
+
   .image-card.done { border-left: 3px solid var(--green-fg); }
   .image-card.error { border-left: 3px solid var(--red-fg); }
   .actions { flex-direction: column; }
@@ -1078,3 +1078,75 @@ body.dark .btn-sweep {
 }
 
 .pie-legal a { display: inline-flex; align-items: center; min-height: var(--tap); text-decoration: none; }
+
+/* ── ACCESIBILIDAD ── */
+/* Foco visible en todo lo interactivo (WCAG 2.4.7 y 2.4.13) */
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.prompt-textarea:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
+.dropzone:focus-visible, .editor-picker:focus-visible { outline-offset: 4px; }
+
+/* Solo para lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Enlace para saltar al contenido: aparece al recibir el foco */
+.saltar {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 10002;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 1.2rem;
+  border-radius: 999px;
+  background: var(--azul);
+  color: #fff;
+  font-family: var(--f-titulo);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.saltar:focus { top: 12px; }
+main:focus { outline: none; }
+
+/* Etiqueta visible y ayuda de los campos */
+.campo-etiqueta {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--f-titulo);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.campo-ayuda { margin: -6px 0 12px; font-size: 0.8rem; color: var(--text-secondary); text-align: right; }
+
+.mensaje-error { color: var(--red-fg); font-size: 0.9rem; font-weight: 500; margin-bottom: 10px; }
+.mensaje-error--item { font-size: 0.85rem; margin: 4px 0 0; }
+
+/* Botón de copiar un dato SEO: ocupa todo el valor */
+button.seo-value { width: 100%; border: none; text-align: left; font-size: 0.85rem; min-height: 2.25rem; }
+
+/* Movimiento reducido: sin transiciones ni animaciones */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

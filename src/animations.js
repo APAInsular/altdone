@@ -1,7 +1,11 @@
 import gsap from 'gsap'
 
+// Si el sistema pide reducir el movimiento, no se anima nada (WCAG 2.3.3)
+export const movimientoReducido = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 /* ── Scroll progress bar ── */
 export function initScrollProgress() {
+  if (movimientoReducido()) return () => {}
   const bar = document.createElement('div')
   bar.className = 'scroll-progress'
   document.body.appendChild(bar)
@@ -24,6 +28,7 @@ export function initScrollProgress() {
 
 /* ── Magnetic hover glow ── */
 export function initMagneticGlow() {
+  if (movimientoReducido()) return
   const targets = document.querySelectorAll('.dropzone:not([data-glow]), .editor-picker:not([data-glow])')
   const cleanups = []
 
@@ -62,6 +67,7 @@ export function initMagneticGlow() {
 
 /* ── Button light sweep (event delegation) ── */
 export function initSweep() {
+  if (movimientoReducido()) return () => {}
   function ensureSweep(btn) {
     let sweep = btn.querySelector('.btn-sweep')
     if (!sweep) {
@@ -112,6 +118,7 @@ export function initSweep() {
 
 /* ── Scroll reveal with IntersectionObserver ── */
 export function initScrollReveal() {
+  if (movimientoReducido()) return () => {}
   const io = new IntersectionObserver(entries => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return
@@ -141,6 +148,7 @@ export function initScrollReveal() {
 
 /* ── Entry animation (one-time) ── */
 export function initEntryAnimation() {
+  if (movimientoReducido()) return
   const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
   tl.fromTo('nav',
     { opacity: 0, y: -22 },
@@ -154,7 +162,7 @@ export function initEntryAnimation() {
 
 /* ── Dark mode toggle with GSAP ── */
 export function toggleDark(isDark, themeBtn, overlay) {
-  if (!themeBtn || !overlay) {
+  if (!themeBtn || !overlay || movimientoReducido()) {
     document.body.classList.toggle('dark', isDark)
     return
   }
@@ -214,6 +222,9 @@ export function showToast(message) {
   if (!stack) {
     stack = document.createElement('div')
     stack.className = 'toast-stack'
+    // Región viva: los lectores de pantalla leen cada aviso nuevo
+    stack.setAttribute('role', 'status')
+    stack.setAttribute('aria-live', 'polite')
     document.body.appendChild(stack)
   }
 
@@ -222,15 +233,19 @@ export function showToast(message) {
   toast.innerHTML = `<span class="toast-dot"></span><span>${String(message).replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`
   stack.appendChild(toast)
 
-  gsap.fromTo(toast, { opacity: 0, y: -12, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.32, ease: 'back.out(1.6)' })
+  if (!movimientoReducido()) {
+    gsap.fromTo(toast, { opacity: 0, y: -12, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.32, ease: 'back.out(1.6)' })
+  }
+  // 6 s para poder leerlo (antes 2,6 s)
   setTimeout(() => {
+    if (movimientoReducido()) return toast.remove()
     gsap.to(toast, { opacity: 0, y: -10, scale: 0.97, duration: 0.25, ease: 'power2.in', onComplete: () => toast.remove() })
-  }, 2600)
+  }, 6000)
 }
 
 /* ── Confetti burst ── */
 export function confettiBurst(originEl) {
-  if (!originEl) return
+  if (!originEl || movimientoReducido()) return
   const rect = originEl.getBoundingClientRect()
   const cx = rect.left + rect.width / 2
   const cy = rect.top + rect.height / 2

@@ -21,6 +21,19 @@
   el SEO, Google para la edición), que no se guarda y que no conviene subir datos personales de terceros.
 - Pie en noche con el logo, enlace a platita.es con UTM (`utm_source=altdone`) y enlaces a aviso legal,
   privacidad (sección de AltDone) y cookies.
+- Accesibilidad WCAG 2.2 AA (paso 3), auditada con axe-core 4.14 en 8 estados (escritorio y móvil,
+  claro y oscuro, optimizador y editor): 0 violaciones.
+  - Las zonas de subida se abren con el teclado (Intro o Espacio); antes solo con el ratón.
+  - Pestañas con el patrón de WAI-ARIA (`tablist`, `aria-selected`, flechas, Inicio y Fin).
+  - Enlace «Ir al contenido», foco visible en todo lo interactivo y etiqueta visible «Qué quieres cambiar»
+    con contador de caracteres.
+  - Regiones vivas: progreso del procesado, resultado del editor, «copiado» y errores (`role="alert"`). El
+    aviso final dice cuántas imágenes salieron bien y cuántas con error (antes decía «correctamente»
+    siempre) y dura 6 s.
+  - Comparador antes/después manejable con flechas, Inicio y Fin (`role="slider"`).
+  - Calidad WebP con etiqueta; copiar un dato SEO es un botón; en móvil vuelven las etiquetas de estado.
+  - Movimiento reducido respetado (GSAP, partículas, confeti y transiciones).
+  - El tema inicial sigue al sistema y se recuerda la elección.
 ### Eliminado
 - Marco 3D giratorio del logo (el manual de marca no permite rotar ni deformar el logo).
 

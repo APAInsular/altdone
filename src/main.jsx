@@ -15,6 +15,7 @@ import {
   toggleDark,
   showToast,
   confettiBurst,
+  movimientoReducido,
 } from './animations.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -68,6 +69,13 @@ function downloadBlob(blob, filename) {
   const a = document.createElement('a')
   a.href = url; a.download = filename; a.click()
   URL.revokeObjectURL(url)
+}
+
+// Las zonas de subida se abren también con Intro o Espacio (WCAG 2.1.1)
+function alPulsarTecla(accion) {
+  return e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); accion() }
+  }
 }
 
 // ─── Estadísticas (Umami sin cookies) y enlaces ─────────────────────────────
@@ -181,12 +189,27 @@ function CompareSlider({ originalSrc, editedSrc }) {
   const lineRef = useRef()
   const handleRef = useRef()
 
+  const [pct, setPct] = useState(50)
+
+  function aplicar(valor) {
+    const v = Math.min(Math.max(valor, 0), 100)
+    afterRef.current.style.width = v + '%'
+    lineRef.current.style.left   = v + '%'
+    handleRef.current.style.left = v + '%'
+    setPct(Math.round(v))
+  }
+
   function setPos(clientX) {
     const r = wrapRef.current.getBoundingClientRect()
-    const pct = Math.min(Math.max((clientX - r.left) / r.width * 100, 0), 100)
-    afterRef.current.style.width = pct + '%'
-    lineRef.current.style.left   = pct + '%'
-    handleRef.current.style.left = pct + '%'
+    aplicar((clientX - r.left) / r.width * 100)
+  }
+
+  // Flechas, Inicio y Fin mueven la línea (control deslizante accesible)
+  function onKeyDown(e) {
+    const pasos = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5 }
+    if (e.key in pasos) { e.preventDefault(); aplicar(pct + pasos[e.key]) }
+    else if (e.key === 'Home') { e.preventDefault(); aplicar(0) }
+    else if (e.key === 'End') { e.preventDefault(); aplicar(100) }
   }
 
   function onPointerDown(e) { wrapRef.current.setPointerCapture(e.pointerId); setPos(e.clientX) }
@@ -197,6 +220,14 @@ function CompareSlider({ originalSrc, editedSrc }) {
     <div
       className="compare-wrap"
       ref={wrapRef}
+      role="slider"
+      tabIndex={0}
+      aria-label="Comparar la imagen editada con la original"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-valuetext={`${pct} % de la imagen editada a la vista`}
+      onKeyDown={onKeyDown}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -225,10 +256,11 @@ function SEOField({ label, value }) {
   return (
     <div className="seo-field">
       <span className="seo-label">{label}</span>
-      <div className="seo-value" onClick={copy}>
+      <button type="button" className="seo-value" onClick={copy} aria-label={`Copiar ${label}: ${value}`}>
         <span>{value}</span>
-        <span className="seo-copy">{copied ? <><Icono nombre="check" /> Copiado</> : <><Icono nombre="copiar" /> Copiar</>}</span>
-      </div>
+        <span className="seo-copy" aria-hidden="true">{copied ? <><Icono nombre="check" /> Copiado</> : <><Icono nombre="copiar" /> Copiar</>}</span>
+      </button>
+      <span className="sr-only" role="status">{copied ? `${label} copiado` : ''}</span>
     </div>
   )
 }
@@ -256,7 +288,7 @@ function ImageCard({ item, onDownload, onRemove }) {
 
   return (
     <div className={`image-card ${item.status}`} ref={cardRef}>
-      <img className="image-thumb" src={previewUrl} alt={item.originalName} />
+      <img className="image-thumb" src={previewUrl} alt="" />
       <div className="image-info" style={{ flex: 1, minWidth: 0 }}>
         <div className="image-name">{item.originalName}</div>
         <div className="image-meta">
@@ -270,7 +302,7 @@ function ImageCard({ item, onDownload, onRemove }) {
           </span>
         </div>
         {item.error && (
-          <div style={{ fontSize: 11.5, color: 'var(--red-fg)', marginTop: 3 }}>{item.error}</div>
+          <p className="mensaje-error mensaje-error--item">{item.error}</p>
         )}
         {item.seo && (
           <button
@@ -317,13 +349,14 @@ function OptimizerTab() {
   const [processing, setProcessing] = useState(false)
   const [quality, setQuality]     = useState(82)
   const [drag, setDrag]           = useState(false)
+  const [anuncio, setAnuncio]     = useState('')
   const dropzoneRef               = useRef()
   const processBtnRef             = useRef()
   const fileInputRef              = useRef()
 
   // Init particle network
   useEffect(() => {
-    if (!dropzoneRef.current) return
+    if (!dropzoneRef.current || movimientoReducido()) return
     const cleanup = initParticles(dropzoneRef.current)
     return cleanup
   }, [])
@@ -346,6 +379,7 @@ function OptimizerTab() {
 
   const processAll = async () => {
     setProcessing(true)
+    setAnuncio('Procesando imágenes…')
     const pending = items.filter(i => i.status === 'pending')
 
     let correctas = 0
@@ -363,9 +397,15 @@ function OptimizerTab() {
       }
     }
 
-    medir('procesar', { imagenes: pending.length, correctas, errores: pending.length - correctas })
-    showToast('Imágenes procesadas correctamente')
-    if (processBtnRef.current) confettiBurst(processBtnRef.current)
+    const errores = pending.length - correctas
+    medir('procesar', { imagenes: pending.length, correctas, errores })
+    // El aviso dice lo que ha pasado de verdad, también si hubo errores
+    const resumen = errores
+      ? `${correctas} de ${pending.length} imágenes listas; ${errores} con error`
+      : (pending.length === 1 ? 'Imagen lista' : `${pending.length} imágenes listas`)
+    setAnuncio('')
+    showToast(resumen)
+    if (processBtnRef.current && !errores) confettiBurst(processBtnRef.current)
     setProcessing(false)
   }
 
@@ -399,7 +439,10 @@ function OptimizerTab() {
           <div
             className={`dropzone${drag ? ' drag-over' : ''}`}
             ref={dropzoneRef}
+            role="button"
+            tabIndex={0}
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={alPulsarTecla(() => fileInputRef.current?.click())}
             onDragOver={e => { e.preventDefault(); setDrag(true) }}
             onDragLeave={() => setDrag(false)}
             onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
@@ -413,13 +456,16 @@ function OptimizerTab() {
               onChange={e => { addFiles(e.target.files); e.target.value = '' }}
             />
             <div className="hexagono"><Icono nombre="subir" /></div>
-            <div className="drop-title">Arrastra tus imágenes aquí</div>
-            <div className="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · máx. 4 MB cada una</div>
-            <span className="drop-cta">o haz clic para elegirlas</span>
+            <div className="drop-title" id="drop-title">Arrastra tus imágenes aquí</div>
+            <div className="drop-hint" id="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · máx. 4 MB cada una</div>
+            <span className="drop-cta" id="drop-cta">o haz clic para elegirlas</span>
           </div>
           <AvisoIA>La conversión a WebP se hace en tu navegador; para los datos SEO, la imagen se envía a Anthropic (Claude).</AvisoIA>
         </div>
       </div>
+
+      {/* Región viva: lo que pasa durante el procesado, para lectores de pantalla */}
+      <p className="sr-only" role="status">{anuncio}</p>
 
       {/* ── Lista de imágenes ── */}
       {items.length > 0 && (
@@ -464,14 +510,15 @@ function OptimizerTab() {
             Vaciar la lista
           </button>
 
-          <div className="quality-control">
+          <label className="quality-control">
             Calidad WebP
             <input
               type="range" min={50} max={100} value={quality}
+              aria-valuetext={`${quality} %`}
               onChange={e => setQuality(+e.target.value)}
             />
-            <strong>{quality}%</strong>
-          </div>
+            <strong aria-hidden="true">{quality}%</strong>
+          </label>
         </div>
       )}
     </>
@@ -562,7 +609,11 @@ function EditorTab() {
           <div
             className={`editor-picker${file ? ' has-image' : ''}`}
             ref={editorPickerRef}
+            role="button"
+            tabIndex={0}
+            aria-label={file ? `Cambiar la imagen (ahora: ${file.name})` : undefined}
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={alPulsarTecla(() => fileInputRef.current?.click())}
           >
             <input
               ref={fileInputRef}
@@ -576,8 +627,8 @@ function EditorTab() {
             ) : (
               <>
                 <div className="hexagono"><Icono nombre="imagen" /></div>
-                <div className="picker-title">Elige una imagen</div>
-                <div className="picker-hint">PNG, JPG, WEBP o GIF · máx. 4 MB</div>
+                <div className="picker-title" id="picker-title">Elige una imagen</div>
+                <div className="picker-hint" id="picker-hint">PNG, JPG, WEBP o GIF · máx. 4 MB</div>
               </>
             )}
           </div>
@@ -611,8 +662,10 @@ function EditorTab() {
                 </button>
               ))}
             </div>
+            <label className="campo-etiqueta" htmlFor="promptTextarea">Qué quieres cambiar</label>
             <textarea
               id="promptTextarea"
+              aria-describedby="prompt-ayuda"
               className="prompt-textarea"
               placeholder="Por ejemplo: quita el fondo y céntrala sobre blanco"
               rows={4}
@@ -620,8 +673,9 @@ function EditorTab() {
               maxLength={500}
               onChange={e => setPrompt(e.target.value)}
             />
+            <p className="campo-ayuda" id="prompt-ayuda">{prompt.length}/500 caracteres</p>
             {error && (
-              <div style={{ color: 'var(--red-fg)', fontSize: 13, marginBottom: 10 }}>{error}</div>
+              <p className="mensaje-error" role="alert">{error}</p>
             )}
             <button
               className="btn btn-primary btn-full"
@@ -636,7 +690,10 @@ function EditorTab() {
         </div>
 
         {/* Columna derecha: resultado */}
-        <div className="editor-result" id="editorResult">
+        <div className="editor-result" id="editorResult" aria-busy={loading}>
+          <p className="sr-only" role="status">
+            {loading ? 'Editando la imagen…' : result ? 'Imagen editada lista. Compárala con la original y descárgala.' : ''}
+          </p>
           {loading && (
             <div className="result-loading">
               <div className="spinner" />
@@ -668,7 +725,7 @@ function EditorTab() {
               {seo && (
                 <div className="result-meta">
                   {seo.error ? (
-                    <p style={{ color: 'var(--red-fg)', fontSize: 13 }}>{seo.error}</p>
+                    <p className="mensaje-error" role="alert">{seo.error}</p>
                   ) : (
                     <>
                       <div className="result-meta-row">
@@ -700,9 +757,23 @@ function EditorTab() {
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
+const PESTANAS = [
+  { id: 'optimizer', tabId: 'tab-opt', panelId: 'page-opt', nombre: 'Optimizador', evento: 'optimizador' },
+  { id: 'editor', tabId: 'tab-ed', panelId: 'page-ed', nombre: 'Editor IA', evento: 'editor' },
+]
+
+// Tema inicial: el que eligió la persona antes o, si no, el del sistema
+function temaInicial() {
+  try {
+    const guardado = localStorage.getItem('altdone-tema')
+    if (guardado) return guardado === 'oscuro'
+  } catch { /* almacenamiento no disponible */ }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
 function App() {
   const [tab, setTab]     = useState('optimizer')
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(temaInicial)
   const themeBtnRef       = useRef()
   const overlayRef        = useRef()
   const isFirstDarkRef    = useRef(true)
@@ -725,24 +796,46 @@ function App() {
     initMagneticGlow()
   })
 
-  // Dark mode con GSAP (omitir en primer render)
+  // Modo oscuro: en el primer render se aplica sin animación; después, con GSAP
   useEffect(() => {
-    if (isFirstDarkRef.current) { isFirstDarkRef.current = false; return }
+    if (isFirstDarkRef.current) {
+      isFirstDarkRef.current = false
+      document.body.classList.toggle('dark', isDark)
+      return
+    }
     toggleDark(isDark, themeBtnRef.current, overlayRef.current)
+    try { localStorage.setItem('altdone-tema', isDark ? 'oscuro' : 'claro') } catch { /* sin almacenamiento */ }
   }, [isDark])
+
+  function cambiarPestana(id) {
+    setTab(id)
+    medir('pestana', { pestana: PESTANAS.find(p => p.id === id).evento })
+  }
+
+  // Flechas, Inicio y Fin recorren las pestañas (patrón de pestañas de WAI-ARIA)
+  function teclaPestana(e) {
+    const i = PESTANAS.findIndex(p => p.id === tab)
+    const destino = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: PESTANAS.length - 1 }[e.key]
+    if (destino === undefined) return
+    e.preventDefault()
+    const p = PESTANAS[(destino + PESTANAS.length) % PESTANAS.length]
+    cambiarPestana(p.id)
+    document.getElementById(p.tabId)?.focus()
+  }
 
   // Animación de entrada para el tab activo al cambiar
   const isFirstTabRef = useRef(true)
   useEffect(() => {
     if (isFirstTabRef.current) { isFirstTabRef.current = false; return }
     const page = document.querySelector('.page.active')
-    if (page) {
+    if (page && !movimientoReducido()) {
       gsap.fromTo(page, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.32, ease: 'power3.out' })
     }
   }, [tab])
 
   return (
     <>
+      <a className="saltar" href="#contenido">Ir al contenido</a>
       <div id="darkOverlay" ref={overlayRef} />
 
       <nav>
@@ -751,23 +844,23 @@ function App() {
           <img className="logo-oscuro" src={logoBlanco} alt="Platita AltDone" />
         </a>
 
-        <div className="nav-pills">
-          <a
-            className={`nav-tab${tab === 'optimizer' ? ' active' : ''}`}
-            href="#"
-            id="tab-opt"
-            onClick={e => { e.preventDefault(); setTab('optimizer'); medir('pestana', { pestana: 'optimizador' }) }}
-          >
-            Optimizador
-          </a>
-          <a
-            className={`nav-tab${tab === 'editor' ? ' active' : ''}`}
-            href="#"
-            id="tab-ed"
-            onClick={e => { e.preventDefault(); setTab('editor'); medir('pestana', { pestana: 'editor' }) }}
-          >
-            Editor IA
-          </a>
+        <div className="nav-pills" role="tablist" aria-label="Herramientas">
+          {PESTANAS.map(p => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              id={p.tabId}
+              aria-selected={tab === p.id}
+              aria-controls={p.panelId}
+              tabIndex={tab === p.id ? 0 : -1}
+              className={`nav-tab${tab === p.id ? ' active' : ''}`}
+              onClick={() => cambiarPestana(p.id)}
+              onKeyDown={teclaPestana}
+            >
+              {p.nombre}
+            </button>
+          ))}
         </div>
 
         <button
@@ -782,11 +875,11 @@ function App() {
         </button>
       </nav>
 
-      <main>
-        <div className={`page${tab === 'optimizer' ? ' active' : ''}`} id="page-opt">
+      <main id="contenido" tabIndex={-1}>
+        <div className={`page${tab === 'optimizer' ? ' active' : ''}`} id="page-opt" role="tabpanel" aria-labelledby="tab-opt">
           <OptimizerTab />
         </div>
-        <div className={`page${tab === 'editor' ? ' active' : ''}`} id="page-ed">
+        <div className={`page${tab === 'editor' ? ' active' : ''}`} id="page-ed" role="tabpanel" aria-labelledby="tab-ed">
           <EditorTab />
         </div>
       </main>
@@ -794,7 +887,7 @@ function App() {
       <footer className="pie">
         <div className="pie-dentro">
           <a className="pie-marca" href={`${PLATITA}/${utm('pie')}`}>
-            <img src={logoBlanco} alt="Platita AltDone" />
+            <img src={logoBlanco} alt="Platita Software" />
           </a>
           <p className="pie-texto">
             Una herramienta de <a href={`${PLATITA}/${utm('pie')}`}>Platita Software</a>, en Canarias.
