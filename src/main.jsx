@@ -16,10 +16,6 @@ import {
   confettiBurst,
 } from './animations.js'
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-const ANTHROPIC_ENDPOINT = '/api/anthropic'
-const GEMINI_ENDPOINT    = '/api/gemini'
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -73,98 +69,89 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-// ─── API calls ───────────────────────────────────────────────────────────────
-function apiHeaders() {
-  return { 'Content-Type': 'application/json' }
-}
+// ─── API ─────────────────────────────────────────────────────────────────────
+// El servidor fija modelos y parámetros; aquí solo se envían la imagen y las instrucciones.
+// Antes de usar la IA se verifica una vez con Turnstile y el servidor da una cookie de sesión.
+const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+let sesionPendiente = null
 
-async function callAnthropic(body) {
-  const res = await fetch(ANTHROPIC_ENDPOINT, {
-    method: 'POST',
-    headers: apiHeaders(),
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`Anthropic error ${res.status}`)
-  return res.json()
-}
-
-async function callGemini(body, model = 'gemini-2.5-flash-image') {
-  return fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: apiHeaders(),
-    body: JSON.stringify({ ...body, model }),
+function cargarTurnstile() {
+  if (window.turnstile) return Promise.resolve(window.turnstile)
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = TURNSTILE_SRC
+    script.async = true
+    script.onload = () => resolve(window.turnstile)
+    script.onerror = () => reject(new Error('No se pudo cargar la verificación de seguridad.'))
+    document.head.appendChild(script)
   })
 }
 
-async function analyzeSEO(imageBase64, mimeType) {
-  const data = await callAnthropic({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
-        { type: 'text', text: `Mira esta imagen con atención. NO uses el nombre del archivo. Describe visualmente lo que ves y genera SEO en español basado ÚNICAMENTE en el contenido visual.
+async function verificarPersona() {
+  const cfg = await fetch('/api/config').then(r => r.json())
+  if (!cfg.turnstileSiteKey) throw new Error('La verificación de seguridad no está configurada.')
+  const turnstile = await cargarTurnstile()
 
-Responde SOLO con este JSON sin markdown ni texto adicional:
-{
-  "filename": "[describe-lo-que-ves-en-la-imagen].webp",
-  "title": "[Título SEO describiendo el contenido visual real]",
-  "alt": "[Descripción accesible de lo que aparece en la imagen]",
-  "description": "[2-3 frases sobre el contenido visual con keywords]"
-}
-
-Ejemplo: si ves una silla de oficina negra, el filename sería silla-oficina-negra-ergonomica.webp, nunca el nombre técnico del archivo.` }
-      ]
-    }]
-  })
-  const text = data.content?.[0]?.text || '{}'
-  console.log('[SEO] Respuesta raw de Haiku:', text)
-  try {
-    const clean = text.replace(/```json|```/g, '').trim()
-    const match = clean.match(/\{[\s\S]*\}/)
-    return match ? JSON.parse(match[0]) : JSON.parse(clean)
-  } catch (e) {
-    console.error('[SEO] Error parseando JSON:', e, 'Texto:', text)
-    return { filename: 'imagen.webp', title: 'Sin título', alt: 'Imagen', description: '' }
-  }
-}
-
-async function editWithGemini(imageBase64, mimeType, userPrompt) {
-  const promptCompleto = `Edita esta imagen siguiendo estas instrucciones: ${userPrompt}
-
-IMPORTANTE: Debes devolver la imagen modificada. Genera y devuelve la imagen editada como resultado principal.`
-
-  const body = {
-    contents: [{
-      parts: [
-        { inline_data: { mime_type: mimeType, data: imageBase64 } },
-        { text: promptCompleto }
-      ]
-    }],
-    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+  // Contenedor fijo: Turnstile solo se muestra si necesita que interactúes
+  let caja = document.getElementById('verificacion')
+  if (!caja) {
+    caja = document.createElement('div')
+    caja.id = 'verificacion'
+    caja.className = 'verificacion'
+    document.body.appendChild(caja)
   }
 
-  const response = await callGemini(body)
-  console.log('[gemini] Status:', response.status)
-  const data = await response.json()
-  console.log('[gemini] Data completa:', JSON.stringify(data).slice(0, 2000))
-
-  const candidates = data.candidates || []
-  console.log('[gemini] Candidates:', candidates.length)
-  candidates.forEach((c, i) => {
-    console.log(`[gemini] Candidate ${i} parts:`,
-      c.content?.parts?.map(p => p.inlineData ? 'IMAGE' : p.text ? 'TEXT:' + p.text.slice(0, 50) : 'OTHER')
-    )
+  const token = await new Promise((resolve, reject) => {
+    const id = turnstile.render(caja, {
+      sitekey: cfg.turnstileSiteKey,
+      action: 'sesion',
+      appearance: 'interaction-only',
+      language: 'es',
+      callback: t => { resolve(t); setTimeout(() => turnstile.remove(id), 0) },
+      'error-callback': () => { turnstile.remove(id); reject(new Error('No hemos podido verificar que eres una persona. Recarga la página.')) },
+    })
   })
 
-  const allParts = data.candidates?.[0]?.content?.parts || []
-  const imgPart = allParts.find(p => p.inlineData || p.inline_data)
-  console.log('[gemini] Imagen encontrada:', !!imgPart)
+  const res = await fetch('/api/sesion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'No se pudo verificar la seguridad.')
+}
 
-  if (!imgPart) throw new Error('Gemini no devolvió imagen')
-  const imgData = imgPart.inlineData || imgPart.inline_data
-  return { b64: imgData.data, mime: imgData.mimeType || imgData.mime_type }
+function asegurarSesion(forzar = false) {
+  if (forzar || !sesionPendiente) {
+    sesionPendiente = verificarPersona().catch(err => { sesionPendiente = null; throw err })
+  }
+  return sesionPendiente
+}
+
+async function llamarApi(ruta, cuerpo) {
+  await asegurarSesion()
+  const enviar = () => fetch(ruta, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cuerpo),
+  })
+  let res = await enviar()
+  // Sesión caducada: se verifica de nuevo una sola vez
+  if (res.status === 401) {
+    await asegurarSesion(true)
+    res = await enviar()
+  }
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`)
+  return data
+}
+
+function analyzeSEO(imagen, tipo) {
+  return llamarApi('/api/seo', { imagen, tipo })
+}
+
+async function editWithGemini(imagen, tipo, instrucciones) {
+  const data = await llamarApi('/api/editar', { imagen, tipo, instrucciones })
+  return { b64: data.imagen, mime: data.tipo }
 }
 
 // ─── Compare Slider ───────────────────────────────────────────────────────────
@@ -564,7 +551,7 @@ function EditorTab() {
     <div>
       <div className="page-header">
         <h1>Editor con IA</h1>
-        <p>Edita imágenes con Gemini 2.0 Flash, exporta a WebP y obtén datos SEO</p>
+        <p>Edita imágenes con Gemini 2.5 Flash Image, exporta a WebP y obtén datos SEO</p>
       </div>
 
       <div className="editor-layout">
@@ -627,6 +614,7 @@ function EditorTab() {
               placeholder="Describe qué quieres hacer con la imagen…"
               rows={4}
               value={prompt}
+              maxLength={500}
               onChange={e => setPrompt(e.target.value)}
             />
             {error && (
