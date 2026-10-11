@@ -1,6 +1,6 @@
 # Changelog
 
-## [Sin publicar] · Rediseño con la identidad de Platita
+## [1.1.0] - 2026-10-11 · Rediseño con la identidad de Platita
 ### Cambiado
 - Identidad de platita.es (paso 1): tokens de marca (azul `#006cb5`, papel/noche, tinta; el modo oscuro
   usa noche y el acento cielo), Exo 2 para títulos y Roboto para texto servidas desde el propio dominio
@@ -43,7 +43,24 @@
 - `/.well-known/security.txt`.
 - Fuera `X-Powered-By: Phusion Passenger` (directiva de Apache en `deploy/directivas-apache-produccion.conf`)
   y helmet deja de duplicar las cabeceras que ya pone nginx.
+- «La herramienta primero» (paso 5): cabecera corta y zona de subida a todo el ancho, que se compacta en una
+  fila cuando ya hay imágenes; debajo, el lote con la calidad WebP y la barra de acciones (fija abajo en el
+  móvil). El botón dice cuántas imágenes va a procesar y el progreso («Procesando 2 de 5…»).
+- A la IA solo va una copia reducida en WebP (1568 px para el SEO, 1536 px para editar): menos datos enviados,
+  menos coste y sin el error de 4 MB con fotos grandes del móvil. La descarga sigue a tamaño completo.
+### Añadido
+- «Datos SEO en CSV» con el archivo original, nombre de archivo, título, texto alternativo y descripción (separado
+  por punto y coma y con BOM para que Excel lea bien las tildes).
+- «Reintentar» las imágenes que fallaron, sin volver a subirlas.
+### Corregido
+- El ahorro salía como «−-217 %» cuando el WebP pesaba más que el original; ahora lo dice tal cual.
+- Fuga de memoria: cada render de la lista creaba una URL de imagen nueva sin liberarla.
+- El comparador del editor aplicaba un filtro de saturación y contraste a la imagen editada, que parecía mejor de
+  lo que es.
 ### Eliminado
+- GSAP y los efectos decorativos (partículas, brillo magnético, barrido de botones, confeti, estrellas, barra de
+  scroll y animaciones de aparición, que además pegaban la lista a los botones): el JavaScript pasa de 317 KB a
+  245 KB (de 104 a 77 KB comprimido).
 - Marco 3D giratorio del logo (el manual de marca no permite rotar ni deformar el logo).
 
 ## [1.0.4] - 2026-10-11 · Cierre de los proxies de IA

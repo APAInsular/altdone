@@ -15,6 +15,8 @@ Platita Software.
   natural usando Gemini 3.1 Flash Lite Image
 - Proxy seguro: las API keys nunca se exponen al navegador
 - Descarga de imágenes optimizadas con nombre SEO correcto
+- Exportación de los datos SEO a CSV
+- A la IA solo se envía una copia reducida de cada imagen; no se guarda en el servidor
 
 ## Requisitos
 - Node.js 22+

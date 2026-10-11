@@ -1,43 +1,24 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { createRoot } from 'react-dom/client'
-import gsap from 'gsap'
 import './index.css'
 import logoAzul from './assets/platita-altdone-azul.svg'
 import logoBlanco from './assets/platita-altdone-blanco.svg'
 import { Icono } from './iconos.jsx'
-import { initParticles } from './particles.js'
-import {
-  initScrollProgress,
-  initMagneticGlow,
-  initSweep,
-  initScrollReveal,
-  initEntryAnimation,
-  toggleDark,
-  showToast,
-  confettiBurst,
-  movimientoReducido,
-} from './animations.js'
+import { showToast } from './animations.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-async function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result.split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-async function compressToWebP(file, quality = 0.82) {
+// Convierte a WebP; con ladoMax, además reduce la imagen manteniendo la proporción
+async function compressToWebP(file, quality = 0.82, ladoMax = Infinity) {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
+      const escala = Math.min(1, ladoMax / Math.max(img.naturalWidth, img.naturalHeight))
       const canvas = document.createElement('canvas')
-      canvas.width  = img.naturalWidth
-      canvas.height = img.naturalHeight
+      canvas.width  = Math.round(img.naturalWidth * escala)
+      canvas.height = Math.round(img.naturalHeight * escala)
       const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       canvas.toBlob(blob => {
         URL.revokeObjectURL(url)
         if (!blob) return reject(new Error('Canvas toBlob failed'))
@@ -57,6 +38,11 @@ function blobToBase64(blob) {
     reader.readAsDataURL(blob)
   })
 }
+
+// A la IA le basta una copia reducida: Claude trabaja a 1568 px como máximo y así se envía menos
+const LADO_ANALISIS = 1568
+const LADO_EDICION = 1536
+const copiaParaIA = (blob, lado) => compressToWebP(blob, 0.85, lado)
 
 function formatBytes(bytes) {
   if (bytes < 1024) return bytes + ' B'
@@ -268,12 +254,13 @@ function SEOField({ label, value }) {
 // ─── Image Card ───────────────────────────────────────────────────────────────
 function ImageCard({ item, onDownload, onRemove }) {
   const [expanded, setExpanded] = useState(false)
-  const cardRef = useRef()
-  const previewUrl = item.webpBlob
-    ? URL.createObjectURL(item.webpBlob)
-    : URL.createObjectURL(item.file)
-  const savings = item.webpSize
-    ? Math.round((1 - item.webpSize / item.originalSize) * 100)
+  // Una URL por imagen (antes se creaba una en cada render y no se liberaba)
+  const fuente = item.webpBlob || item.file
+  const previewUrl = useMemo(() => URL.createObjectURL(fuente), [fuente])
+  useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl])
+  // Diferencia de peso: si el WebP pesa más que el original, se dice tal cual
+  const cambio = item.webpSize
+    ? Math.round((item.webpSize / item.originalSize - 1) * 100)
     : null
 
   const statusLabel = {
@@ -287,15 +274,17 @@ function ImageCard({ item, onDownload, onRemove }) {
   }
 
   return (
-    <div className={`image-card ${item.status}`} ref={cardRef}>
+    <li className={`image-card ${item.status}`}>
       <img className="image-thumb" src={previewUrl} alt="" />
-      <div className="image-info" style={{ flex: 1, minWidth: 0 }}>
+      <div className="image-info">
         <div className="image-name">{item.originalName}</div>
         <div className="image-meta">
           <span className="image-size">
             {formatBytes(item.originalSize)}
             {item.webpSize && ` → ${formatBytes(item.webpSize)}`}
-            {savings !== null && <span style={{ color: 'var(--green-fg)', fontWeight: 700 }}> −{savings}%</span>}
+            {cambio !== null && (cambio <= 0
+              ? <span className="ahorro"> ({cambio === 0 ? 'igual' : `−${-cambio} %`})</span>
+              : <span className="ahorro ahorro--mas"> (+{cambio} %: el original ya estaba muy optimizado)</span>)}
           </span>
           <span className={`badge ${badgeClass[item.status] || 'badge-pending'}`}>
             {statusLabel[item.status] || item.status}
@@ -306,8 +295,7 @@ function ImageCard({ item, onDownload, onRemove }) {
         )}
         {item.seo && (
           <button
-            className="btn btn-suave btn-sm"
-            style={{ marginTop: 8 }}
+            className="btn btn-suave btn-sm image-toggle"
             onClick={() => setExpanded(v => !v)}
             aria-expanded={expanded}
           >
@@ -318,8 +306,8 @@ function ImageCard({ item, onDownload, onRemove }) {
         {expanded && item.seo && (
           <div className="seo-section">
             <SEOField label="Título SEO"       value={item.seo.title} />
-            <SEOField label="Alt text"         value={item.seo.alt} />
-            <SEOField label="Nombre archivo"   value={item.seo.filename} />
+            <SEOField label="Texto alternativo" value={item.seo.alt} />
+            <SEOField label="Nombre de archivo" value={item.seo.filename} />
             <SEOField label="Descripción"      value={item.seo.description} />
           </div>
         )}
@@ -330,7 +318,7 @@ function ImageCard({ item, onDownload, onRemove }) {
         </button>
       )}
       <button className="remove-btn" aria-label={`Quitar ${item.originalName}`} onClick={() => onRemove(item.id)}><Icono nombre="cerrar" /></button>
-    </div>
+    </li>
   )
 }
 
@@ -344,22 +332,23 @@ const PRESETS = [
   { label: 'Color vibrante',    prompt: 'Aumenta la saturación y viveza de los colores manteniendo un aspecto natural' },
 ]
 
-function OptimizerTab() {
-  const [items, setItems]         = useState([])
-  const [processing, setProcessing] = useState(false)
-  const [quality, setQuality]     = useState(82)
-  const [drag, setDrag]           = useState(false)
-  const [anuncio, setAnuncio]     = useState('')
-  const dropzoneRef               = useRef()
-  const processBtnRef             = useRef()
-  const fileInputRef              = useRef()
+// CSV con los datos SEO, listo para Excel o para importar en WordPress
+function csvSeo(items) {
+  const celda = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const filas = [['archivo_original', 'nombre_archivo', 'titulo', 'texto_alternativo', 'descripcion']]
+  for (const i of items) filas.push([i.originalName, i.seo.filename, i.seo.title, i.seo.alt, i.seo.description])
+  // BOM para que Excel lea bien las tildes
+  return new Blob(['﻿' + filas.map(f => f.map(celda).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
+}
 
-  // Init particle network
-  useEffect(() => {
-    if (!dropzoneRef.current || movimientoReducido()) return
-    const cleanup = initParticles(dropzoneRef.current)
-    return cleanup
-  }, [])
+function OptimizerTab() {
+  const [items, setItems]           = useState([])
+  const [processing, setProcessing] = useState(false)
+  const [progreso, setProgreso]     = useState(null)
+  const [quality, setQuality]       = useState(82)
+  const [drag, setDrag]             = useState(false)
+  const [anuncio, setAnuncio]       = useState('')
+  const fileInputRef                = useRef()
 
   const addFiles = useCallback(newFiles => {
     const images = Array.from(newFiles).filter(f => f.type.startsWith('image/'))
@@ -377,19 +366,20 @@ function OptimizerTab() {
     })
   }, [])
 
-  const processAll = async () => {
+  const procesar = async pending => {
     setProcessing(true)
-    setAnuncio('Procesando imágenes…')
-    const pending = items.filter(i => i.status === 'pending')
 
     let correctas = 0
-    for (const item of pending) {
-      setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'compressing' } : x))
+    for (const [n, item] of pending.entries()) {
+      setProgreso({ actual: n + 1, total: pending.length })
+      setAnuncio(`Procesando imagen ${n + 1} de ${pending.length}`)
+      setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'compressing', error: null } : x))
       try {
+        // WebP a tamaño completo para descargar; a la IA solo va una copia reducida
         const webpBlob = await compressToWebP(item.file, quality / 100)
-        const webpB64  = await blobToBase64(webpBlob)
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'analyzing', webpBlob, webpSize: webpBlob.size } : x))
-        const seo = await analyzeSEO(webpB64, 'image/webp')
+        const copia = await copiaParaIA(webpBlob, LADO_ANALISIS)
+        const seo = await analyzeSEO(await blobToBase64(copia), 'image/webp')
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'done', seo } : x))
         correctas++
       } catch (err) {
@@ -404,8 +394,8 @@ function OptimizerTab() {
       ? `${correctas} de ${pending.length} imágenes listas; ${errores} con error`
       : (pending.length === 1 ? 'Imagen lista' : `${pending.length} imágenes listas`)
     setAnuncio('')
+    setProgreso(null)
     showToast(resumen)
-    if (processBtnRef.current && !errores) confettiBurst(processBtnRef.current)
     setProcessing(false)
   }
 
@@ -416,110 +406,114 @@ function OptimizerTab() {
     downloadBlob(item.webpBlob, name)
   }
 
-  const downloadAll = () => items.filter(i => i.status === 'done').forEach(downloadItem)
+  const listas = items.filter(i => i.status === 'done')
+  const downloadAll = () => listas.forEach(downloadItem)
+  const downloadCsv = () => {
+    medir('descargar_csv', { imagenes: listas.length })
+    downloadBlob(csvSeo(listas), 'altdone-datos-seo.csv')
+  }
+  const processAll = () => procesar(items.filter(i => i.status === 'pending'))
+  // Reintenta directamente las imágenes que fallaron
+  const reintentar = () => procesar(items.filter(i => i.status === 'error'))
 
   const removeItem = id => setItems(prev => prev.filter(x => x.id !== id))
   const reset      = () => setItems([])
 
-  const doneCount    = items.filter(i => i.status === 'done').length
   const pendingCount = items.filter(i => i.status === 'pending').length
+  const errorCount   = items.filter(i => i.status === 'error').length
+  const hayImagenes  = items.length > 0
 
   return (
     <>
-      {/* ── Hero: frame 3D + dropzone ── */}
-      <div className="opt-hero">
-        <div className="opt-hero-left">
-          <div className="page-header">
-            <h1>Optimiza tus imágenes para WordPress</h1>
-            <p>Sube tus imágenes y te las devolvemos en WebP, con título, texto alternativo, nombre de archivo y descripción listos para pegar.</p>
-          </div>
-        </div>
-
-        <div className="opt-hero-right">
-          <div
-            className={`dropzone${drag ? ' drag-over' : ''}`}
-            ref={dropzoneRef}
-            role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={alPulsarTecla(() => fileInputRef.current?.click())}
-            onDragOver={e => { e.preventDefault(); setDrag(true) }}
-            onDragLeave={() => setDrag(false)}
-            onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              style={{ display: 'none' }}
-              onChange={e => { addFiles(e.target.files); e.target.value = '' }}
-            />
-            <div className="hexagono"><Icono nombre="subir" /></div>
-            <div className="drop-title" id="drop-title">Arrastra tus imágenes aquí</div>
-            <div className="drop-hint" id="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · máx. 4 MB cada una</div>
-            <span className="drop-cta" id="drop-cta">o haz clic para elegirlas</span>
-          </div>
-          <AvisoIA>La conversión a WebP se hace en tu navegador; para los datos SEO, la imagen se envía a Anthropic (Claude).</AvisoIA>
-        </div>
+      <div className="page-header">
+        <h1>Optimiza tus imágenes para WordPress</h1>
+        <p>Te las devolvemos en WebP, con título, texto alternativo, nombre de archivo y descripción listos para pegar.</p>
       </div>
+
+      <div
+        className={`dropzone${drag ? ' drag-over' : ''}${hayImagenes ? ' dropzone--compacta' : ''}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => fileInputRef.current?.click()}
+        onKeyDown={alPulsarTecla(() => fileInputRef.current?.click())}
+        onDragOver={e => { e.preventDefault(); setDrag(true) }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files) }}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          style={{ display: 'none' }}
+          onChange={e => { addFiles(e.target.files); e.target.value = '' }}
+        />
+        <div className="hexagono"><Icono nombre="subir" /></div>
+        <div className="drop-texto">
+          <div className="drop-title">{hayImagenes ? 'Añade más imágenes' : 'Arrastra tus imágenes aquí'}</div>
+          <div className="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · los GIF animados pierden la animación</div>
+        </div>
+        <span className="drop-cta">o haz clic para elegirlas</span>
+      </div>
+      <AvisoIA>La conversión a WebP se hace en tu navegador; para los datos SEO, se envía a Anthropic (Claude) una copia reducida.</AvisoIA>
 
       {/* Región viva: lo que pasa durante el procesado, para lectores de pantalla */}
       <p className="sr-only" role="status">{anuncio}</p>
 
-      {/* ── Lista de imágenes ── */}
-      {items.length > 0 && (
-        <div id="listSection">
-          <div className="file-counter">
-            <Icono nombre="archivo" />
-            <span>{items.length === 1 ? '1 imagen' : `${items.length} imágenes`}</span>
+      {hayImagenes && (
+        <section className="lote" aria-labelledby="lote-titulo">
+          <div className="lote-cabecera">
+            <h2 id="lote-titulo">{items.length === 1 ? '1 imagen' : `${items.length} imágenes`}</h2>
+            <label className="quality-control">
+              Calidad WebP
+              <input
+                type="range" min={50} max={100} value={quality}
+                aria-valuetext={`${quality} %`}
+                onChange={e => setQuality(+e.target.value)}
+              />
+              <strong aria-hidden="true">{quality}%</strong>
+            </label>
           </div>
 
-          <div className="image-list">
+          {/* Barra de acciones: en el móvil queda fija abajo */}
+          <div className="actions">
+            {pendingCount > 0 && (
+              <button className="btn btn-primary" onClick={processAll} disabled={processing}>
+                <Icono nombre="procesar" />
+                {processing && progreso
+                  ? `Procesando ${progreso.actual} de ${progreso.total}…`
+                  : `Procesar ${pendingCount === 1 ? '1 imagen' : `${pendingCount} imágenes`}`}
+              </button>
+            )}
+            {!processing && errorCount > 0 && (
+              <button className="btn btn-secundario" onClick={reintentar}>
+                Reintentar {errorCount === 1 ? 'la que falló' : `las ${errorCount} que fallaron`}
+              </button>
+            )}
+            {listas.length > 1 && (
+              <button className="btn btn-secundario" onClick={downloadAll}>
+                <Icono nombre="descargar" />
+                Descargar todas ({listas.length})
+              </button>
+            )}
+            {listas.length > 0 && (
+              <button className="btn btn-secundario" onClick={downloadCsv}>
+                <Icono nombre="archivo" />
+                Datos SEO en CSV
+              </button>
+            )}
+            <button className="btn btn-suave" onClick={reset} disabled={processing}>
+              <Icono nombre="papelera" />
+              Vaciar
+            </button>
+          </div>
+
+          <ul className="image-list">
             {items.map(item => (
               <ImageCard key={item.id} item={item} onDownload={downloadItem} onRemove={removeItem} />
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── Acciones ── */}
-      {items.length > 0 && (
-        <div className="actions">
-          {pendingCount > 0 && (
-            <button
-              className="btn btn-primary"
-              ref={processBtnRef}
-              onClick={processAll}
-              disabled={processing}
-            >
-              <Icono nombre="procesar" />
-              {processing ? 'Procesando…' : 'Procesar imágenes'}
-            </button>
-          )}
-
-          {doneCount > 1 && (
-            <button className="btn btn-secundario" onClick={downloadAll}>
-              <Icono nombre="descargar" />
-              Descargar todas ({doneCount})
-            </button>
-          )}
-
-          <button className="btn btn-secundario" onClick={reset}>
-            <Icono nombre="papelera" />
-            Vaciar la lista
-          </button>
-
-          <label className="quality-control">
-            Calidad WebP
-            <input
-              type="range" min={50} max={100} value={quality}
-              aria-valuetext={`${quality} %`}
-              onChange={e => setQuality(+e.target.value)}
-            />
-            <strong aria-hidden="true">{quality}%</strong>
-          </label>
-        </div>
+          </ul>
+        </section>
       )}
     </>
   )
@@ -556,8 +550,9 @@ function EditorTab() {
     if (!file || !prompt.trim()) return
     setLoading(true); setError(null); setResult(null); setSeo(null)
     try {
-      const b64 = await fileToBase64(file)
-      const { b64: resultB64, mime: resultMime } = await editWithGemini(b64, file.type, prompt)
+      // Copia reducida en WebP: evita el límite de 4 MB con fotos grandes del móvil
+      const copia = await copiaParaIA(file, LADO_EDICION)
+      const { b64: resultB64, mime: resultMime } = await editWithGemini(await blobToBase64(copia), 'image/webp', prompt)
 
       const byteChars = atob(resultB64)
       const byteArr = new Uint8Array(byteChars.length)
@@ -774,36 +769,12 @@ function temaInicial() {
 function App() {
   const [tab, setTab]     = useState('optimizer')
   const [isDark, setIsDark] = useState(temaInicial)
-  const themeBtnRef       = useRef()
-  const overlayRef        = useRef()
   const isFirstDarkRef    = useRef(true)
 
-  // Animaciones globales al montar
+  // Modo oscuro: se guarda la elección a partir del primer cambio
   useEffect(() => {
-    initEntryAnimation()
-    const cleanupProgress = initScrollProgress()
-    const cleanupSweep    = initSweep()
-    const cleanupReveal   = initScrollReveal()
-    return () => {
-      cleanupProgress()
-      cleanupSweep()
-      cleanupReveal()
-    }
-  }, [])
-
-  // Magnetic glow tras cada render (tab puede cambiar)
-  useEffect(() => {
-    initMagneticGlow()
-  })
-
-  // Modo oscuro: en el primer render se aplica sin animación; después, con GSAP
-  useEffect(() => {
-    if (isFirstDarkRef.current) {
-      isFirstDarkRef.current = false
-      document.body.classList.toggle('dark', isDark)
-      return
-    }
-    toggleDark(isDark, themeBtnRef.current, overlayRef.current)
+    document.body.classList.toggle('dark', isDark)
+    if (isFirstDarkRef.current) { isFirstDarkRef.current = false; return }
     try { localStorage.setItem('altdone-tema', isDark ? 'oscuro' : 'claro') } catch { /* sin almacenamiento */ }
   }, [isDark])
 
@@ -823,20 +794,9 @@ function App() {
     document.getElementById(p.tabId)?.focus()
   }
 
-  // Animación de entrada para el tab activo al cambiar
-  const isFirstTabRef = useRef(true)
-  useEffect(() => {
-    if (isFirstTabRef.current) { isFirstTabRef.current = false; return }
-    const page = document.querySelector('.page.active')
-    if (page && !movimientoReducido()) {
-      gsap.fromTo(page, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.32, ease: 'power3.out' })
-    }
-  }, [tab])
-
   return (
     <>
       <a className="saltar" href="#contenido">Ir al contenido</a>
-      <div id="darkOverlay" ref={overlayRef} />
 
       <nav>
         <a className="logo" href="/">
@@ -865,7 +825,6 @@ function App() {
 
         <button
           className="theme-btn"
-          ref={themeBtnRef}
           id="themeBtn"
           aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           onClick={() => setIsDark(d => !d)}
