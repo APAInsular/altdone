@@ -1,6 +1,6 @@
-# AltDone
-> AI-powered image optimizer and SEO generator for WordPress
-> by Platita Software
+# Platita AltDone
+> Optimiza imágenes para WordPress: WebP y datos SEO con IA
+> Una herramienta de Platita Software
 
 ## ¿Qué es AltDone?
 Herramienta web que combina compresión WebP, análisis SEO con 

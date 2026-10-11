@@ -173,7 +173,7 @@ export function toggleDark(isDark, themeBtn, overlay) {
       { opacity: 1, rotation: 0,   scale: 1,   duration: 0.35, ease: 'back.out(1.5)', delay: 0.15 }
     )
 
-    gsap.set(overlay, { opacity: 0, background: '#0e0e14' })
+    gsap.set(overlay, { opacity: 0, background: '#04182a' })
     gsap.to(overlay, {
       opacity: 1, duration: 0.22, ease: 'power2.in',
       onComplete: () => {
@@ -201,7 +201,7 @@ export function toggleDark(isDark, themeBtn, overlay) {
         document.body.classList.remove('dark')
         gsap.to(overlay, {
           opacity: 0, duration: 0.35, ease: 'power2.out',
-          onComplete: () => gsap.set(overlay, { background: '#0e0e14' })
+          onComplete: () => gsap.set(overlay, { background: '#04182a' })
         })
       }
     })
@@ -234,7 +234,7 @@ export function confettiBurst(originEl) {
   const rect = originEl.getBoundingClientRect()
   const cx = rect.left + rect.width / 2
   const cy = rect.top + rect.height / 2
-  const colors = ['#4a8add', '#4f37c8', '#7db7df', '#1a8a55', '#fde68a', '#f472b6']
+  const colors = ['#006cb5', '#00507f', '#6cc0f5', '#117a42', '#e7eef5']
   const pieces = 28
 
   for (let i = 0; i < pieces; i++) {
@@ -263,7 +263,7 @@ function spawnStars(origin) {
   const rect = origin.getBoundingClientRect()
   const cx = rect.left + rect.width  / 2 + window.scrollX
   const cy = rect.top  + rect.height / 2 + window.scrollY
-  const colors = ['#6aa3f0', '#c084fc', '#f0abfc', '#a5f3fc', '#fde68a']
+  const colors = ['#6cc0f5', '#eef4f9', '#a9bccd', '#9fd6f8']
   const count = 10
 
   for (let i = 0; i < count; i++) {

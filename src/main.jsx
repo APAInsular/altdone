@@ -2,8 +2,9 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import gsap from 'gsap'
 import './index.css'
-import logoUrl from './assets/logo.svg'
-import { initFrame3D } from './frame3d.js'
+import logoAzul from './assets/platita-altdone-azul.svg'
+import logoBlanco from './assets/platita-altdone-blanco.svg'
+import { Icono } from './iconos.jsx'
 import { initParticles } from './particles.js'
 import {
   initScrollProgress,
@@ -206,7 +207,7 @@ function SEOField({ label, value }) {
       <span className="seo-label">{label}</span>
       <div className="seo-value" onClick={copy}>
         <span>{value}</span>
-        <span className="seo-copy">{copied ? '✓' : 'Copiar'}</span>
+        <span className="seo-copy">{copied ? <><Icono nombre="check" /> Copiado</> : <><Icono nombre="copiar" /> Copiar</>}</span>
       </div>
     </div>
   )
@@ -225,7 +226,7 @@ function ImageCard({ item, onDownload, onRemove }) {
 
   const statusLabel = {
     pending: 'Pendiente', compressing: 'Comprimiendo…',
-    analyzing: 'Analizando SEO…', done: 'Listo ✓', error: 'Error',
+    analyzing: 'Analizando SEO…', done: 'Listo', error: 'Error',
   }
 
   const badgeClass = {
@@ -253,11 +254,13 @@ function ImageCard({ item, onDownload, onRemove }) {
         )}
         {item.seo && (
           <button
-            className="btn btn-ghost"
-            style={{ marginTop: 8, padding: '3px 10px', fontSize: 12 }}
+            className="btn btn-suave btn-sm"
+            style={{ marginTop: 8 }}
             onClick={() => setExpanded(v => !v)}
+            aria-expanded={expanded}
           >
-            {expanded ? '▲ Ocultar SEO' : '▼ Ver datos SEO'}
+            <Icono nombre={expanded ? 'arriba' : 'abajo'} />
+            {expanded ? 'Ocultar datos SEO' : 'Ver datos SEO'}
           </button>
         )}
         {expanded && item.seo && (
@@ -270,11 +273,11 @@ function ImageCard({ item, onDownload, onRemove }) {
         )}
       </div>
       {item.status === 'done' && (
-        <button className="btn btn-ghost" style={{ padding: '6px 10px', fontSize: 13 }} onClick={() => onDownload(item)}>
-          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <button className="btn btn-suave btn-icono" onClick={() => onDownload(item)} aria-label={`Descargar ${item.seo?.filename || item.originalName}`}>
+          <Icono nombre="descargar" />
         </button>
       )}
-      <button className="remove-btn" title="Eliminar" onClick={() => onRemove(item.id)}>&times;</button>
+      <button className="remove-btn" aria-label={`Quitar ${item.originalName}`} onClick={() => onRemove(item.id)}><Icono nombre="cerrar" /></button>
     </div>
   )
 }
@@ -294,17 +297,9 @@ function OptimizerTab() {
   const [processing, setProcessing] = useState(false)
   const [quality, setQuality]     = useState(82)
   const [drag, setDrag]           = useState(false)
-  const frame3dContainerRef       = useRef()
   const dropzoneRef               = useRef()
   const processBtnRef             = useRef()
   const fileInputRef              = useRef()
-
-  // Init frame3d
-  useEffect(() => {
-    if (!frame3dContainerRef.current) return
-    const cleanup = initFrame3D(frame3dContainerRef.current, logoUrl)
-    return cleanup
-  }, [])
 
   // Init particle network
   useEffect(() => {
@@ -370,10 +365,9 @@ function OptimizerTab() {
       {/* ── Hero: frame 3D + dropzone ── */}
       <div className="opt-hero">
         <div className="opt-hero-left">
-          <div ref={frame3dContainerRef} />
           <div className="page-header">
-            <h1>Optimizador batch</h1>
-            <p>Convierte a WebP y genera alt text, nombre de archivo y keywords con Claude Haiku</p>
+            <h1>Optimiza tus imágenes para WordPress</h1>
+            <p>Sube tus imágenes y te las devolvemos en WebP, con título, texto alternativo, nombre de archivo y descripción listos para pegar.</p>
           </div>
         </div>
 
@@ -394,16 +388,10 @@ function OptimizerTab() {
               style={{ display: 'none' }}
               onChange={e => { addFiles(e.target.files); e.target.value = '' }}
             />
-            <div className="drop-icon-wrap">
-              <svg viewBox="0 0 24 24">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-            </div>
-            <div className="drop-title">Arrastra imágenes aquí</div>
-            <div className="drop-hint">PNG · JPG · WEBP · GIF &nbsp;·&nbsp; Múltiples archivos</div>
-            <span className="drop-cta">o haz clic para seleccionar</span>
+            <div className="hexagono"><Icono nombre="subir" /></div>
+            <div className="drop-title">Arrastra tus imágenes aquí</div>
+            <div className="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · máx. 4 MB cada una</div>
+            <span className="drop-cta">o haz clic para elegirlas</span>
           </div>
         </div>
       </div>
@@ -412,11 +400,8 @@ function OptimizerTab() {
       {items.length > 0 && (
         <div id="listSection">
           <div className="file-counter">
-            <svg viewBox="0 0 24 24">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            <span>{items.length === 1 ? '1 archivo' : `${items.length} archivos`}</span>
+            <Icono nombre="archivo" />
+            <span>{items.length === 1 ? '1 imagen' : `${items.length} imágenes`}</span>
           </div>
 
           <div className="image-list">
@@ -437,33 +422,21 @@ function OptimizerTab() {
               onClick={processAll}
               disabled={processing}
             >
-              <svg viewBox="0 0 24 24">
-                <polyline points="13 2 13 9 20 9"/>
-                <path d="M11 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
-                <polyline points="18 5 22 9 18 13"/>
-              </svg>
+              <Icono nombre="procesar" />
               {processing ? 'Procesando…' : 'Procesar imágenes'}
             </button>
           )}
 
           {doneCount > 1 && (
-            <button className="btn btn-ghost" onClick={downloadAll}>
-              <svg viewBox="0 0 24 24">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Descargar todos ({doneCount})
+            <button className="btn btn-secundario" onClick={downloadAll}>
+              <Icono nombre="descargar" />
+              Descargar todas ({doneCount})
             </button>
           )}
 
-          <button className="btn btn-ghost" onClick={reset}>
-            <svg viewBox="0 0 24 24">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14H6L5 6"/>
-              <path d="M10 11v6M14 11v6"/>
-            </svg>
-            Limpiar todo
+          <button className="btn btn-secundario" onClick={reset}>
+            <Icono nombre="papelera" />
+            Vaciar la lista
           </button>
 
           <div className="quality-control">
@@ -550,8 +523,8 @@ function EditorTab() {
   return (
     <div>
       <div className="page-header">
-        <h1>Editor con IA</h1>
-        <p>Edita imágenes con Gemini 3.1 Flash Lite Image, exporta a WebP y obtén datos SEO</p>
+        <h1>Edita una imagen con IA</h1>
+        <p>Elige un ajuste o describe el cambio, compara el antes y el después y descárgala en WebP con sus datos SEO.</p>
       </div>
 
       <div className="editor-layout">
@@ -573,9 +546,9 @@ function EditorTab() {
               <img src={previewSrc} alt={file.name} />
             ) : (
               <>
-                <div className="picker-icon">✏️</div>
-                <div className="picker-title">Selecciona una imagen</div>
-                <div className="picker-hint">Una imagen para editar con IA</div>
+                <div className="hexagono"><Icono nombre="imagen" /></div>
+                <div className="picker-title">Elige una imagen</div>
+                <div className="picker-hint">PNG, JPG, WEBP o GIF · máx. 4 MB</div>
               </>
             )}
           </div>
@@ -585,8 +558,7 @@ function EditorTab() {
               {file.name} &nbsp;·&nbsp; {formatBytes(file.size)}
               &nbsp;·&nbsp;
               <button
-                className="btn btn-ghost"
-                style={{ padding: '2px 8px', fontSize: 11, display: 'inline-flex' }}
+                className="btn btn-suave btn-sm"
                 onClick={() => { setFile(null); setPreviewSrc(null); setResult(null); setSeo(null) }}
               >
                 Cambiar
@@ -595,7 +567,7 @@ function EditorTab() {
           )}
 
           <div className="presets-card">
-            <div className="presets-label">Presets rápidos</div>
+            <div className="presets-label">Ajustes rápidos</div>
             <div className="presets-list" id="presetsList">
               {PRESETS.map(p => (
                 <button
@@ -611,7 +583,7 @@ function EditorTab() {
             <textarea
               id="promptTextarea"
               className="prompt-textarea"
-              placeholder="Describe qué quieres hacer con la imagen…"
+              placeholder="Por ejemplo: quita el fondo y céntrala sobre blanco"
               rows={4}
               value={prompt}
               maxLength={500}
@@ -626,7 +598,8 @@ function EditorTab() {
               onClick={edit}
               disabled={!file || !prompt.trim() || loading}
             >
-              {loading ? '⏳ Editando con Gemini…' : '🪄 Editar imagen'}
+              <Icono nombre="varita" />
+              {loading ? 'Editando…' : 'Editar imagen'}
             </button>
           </div>
         </div>
@@ -641,7 +614,7 @@ function EditorTab() {
           )}
 
           {!result && !loading && (
-            <p className="result-placeholder">El resultado aparecerá aquí</p>
+            <p className="result-placeholder">Aquí verás el antes y el después</p>
           )}
 
           {result && !loading && (
@@ -652,11 +625,12 @@ function EditorTab() {
 
               <div className="result-actions">
                 <button className="btn btn-primary" onClick={download}>
-                  <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <Icono nombre="descargar" />
                   Descargar WebP
                 </button>
-                <button className="btn btn-ghost" onClick={getSEO} disabled={analyzingSeo}>
-                  {analyzingSeo ? '⏳ Analizando…' : '🔍 Analizar SEO'}
+                <button className="btn btn-secundario" onClick={getSEO} disabled={analyzingSeo}>
+                  <Icono nombre="buscar" />
+                  {analyzingSeo ? 'Analizando…' : 'Obtener datos SEO'}
                 </button>
               </div>
 
@@ -741,8 +715,9 @@ function App() {
       <div id="darkOverlay" ref={overlayRef} />
 
       <nav>
-        <a className="logo" href="#">
-          <img src={logoUrl} alt="Platita Servicios Informáticos" />
+        <a className="logo" href="/">
+          <img className="logo-claro" src={logoAzul} alt="Platita AltDone" />
+          <img className="logo-oscuro" src={logoBlanco} alt="Platita AltDone" />
         </a>
 
         <div className="nav-pills">
@@ -768,27 +743,11 @@ function App() {
           className="theme-btn"
           ref={themeBtnRef}
           id="themeBtn"
-          aria-label="Cambiar modo oscuro/claro"
+          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           onClick={() => setIsDark(d => !d)}
         >
-          <span className="theme-icon theme-icon--sun">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1"  x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22"  x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1"  y1="12" x2="3"  y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </svg>
-          </span>
-          <span className="theme-icon theme-icon--moon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-            </svg>
-          </span>
+          <span className="theme-icon theme-icon--sun"><Icono nombre="sol" /></span>
+          <span className="theme-icon theme-icon--moon"><Icono nombre="luna" /></span>
         </button>
       </nav>
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## [Sin publicar] · Rediseño con la identidad de Platita
+### Cambiado
+- Identidad de platita.es (paso 1): tokens de marca (azul `#006cb5`, papel/noche, tinta; el modo oscuro
+  usa noche y el acento cielo), Exo 2 para títulos y Roboto para texto servidas desde el propio dominio
+  (fuera Google Fonts y DM Sans/DM Mono), logo de la submarca Platita AltDone en SVG (azul y blanco según
+  el modo), favicon e icono de Apple del isotipo.
+- Botones en píldora de 48 px (primario azul, secundario con contorno tinta, suave para acciones de
+  tarjeta), pestañas y ajustes rápidos en píldora, tarjetas con una sola elevación (sombra, sin borde) y
+  hexágono del isotipo en las zonas de subida.
+- Iconos SVG propios con trazo 1,8 en lugar de emojis y símbolos (✏️ 🪄 ⏳ 🔍 ✓ ▲ ▼ ×).
+- Textos de tú y sin nombres de modelos: «Optimiza tus imágenes para WordPress», «Edita una imagen con IA»,
+  «Ajustes rápidos», «Vaciar la lista»; los botones de solo icono tienen nombre accesible.
+- Vite copia `static/` (favicon) a `public/` y solo limpia `public/assets` al compilar: ya no borra
+  `public/.php-ini` ni `.php-version` del servidor.
+### Eliminado
+- Marco 3D giratorio del logo (el manual de marca no permite rotar ni deformar el logo).
+
 ## [1.0.4] - 2026-10-11 · Cierre de los proxies de IA
 ### Seguridad
 - `/api/anthropic` y `/api/gemini` eran proxies abiertos: cualquiera podía usar las claves eligiendo modelo,

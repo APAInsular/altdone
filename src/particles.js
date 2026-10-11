@@ -24,8 +24,8 @@ export function initParticles(dz) {
 
   function brandColor() {
     return document.body.classList.contains('dark')
-      ? 'rgba(106,163,240,'
-      : 'rgba(74,138,221,'
+      ? 'rgba(108,192,245,'
+      : 'rgba(0,108,181,'
   }
 
   function makeParticle() {
