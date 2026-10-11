@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import logoAzul from './assets/platita-altdone-azul.svg'
 import logoBlanco from './assets/platita-altdone-blanco.svg'
-import { Icono } from './iconos.jsx'
+import { Icono, IconoWhatsApp } from './iconos.jsx'
 import { showToast } from './animations.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -72,6 +72,41 @@ function medir(evento, datos) {
 
 const PLATITA = 'https://platita.es'
 const utm = contenido => `?utm_source=altdone&utm_medium=herramienta&utm_content=${contenido}`
+
+// Contacto y servicio que se ofrecen en la herramienta (mismo número que platita.es)
+const WHATSAPP_DUDAS = 'https://wa.me/34613026824?text=Hola%2C%20tengo%20una%20duda%20sobre%20Platita%20AltDone'
+const SERVICIO_MANTENIMIENTO = `${PLATITA}/servicios/mantenimiento-wordpress-fuerteventura/${utm('exito_descarga')}`
+const CLAVE_AVISO_EXITO = 'altdone-aviso-exito'
+
+// La primera descarga de la sesión muestra el aviso del servicio; las siguientes, no
+function avisoYaMostrado() {
+  try { return sessionStorage.getItem(CLAVE_AVISO_EXITO) === '1' } catch { return false }
+}
+
+function marcarAvisoMostrado() {
+  try { sessionStorage.setItem(CLAVE_AVISO_EXITO, '1') } catch { /* sin almacenamiento: se verá en esta carga */ }
+}
+
+// Línea discreta bajo las acciones en el momento del éxito: sin modal ni nada que tape
+function AvisoExito({ titulo }) {
+  return (
+    <p className="aviso-exito">
+      <Icono nombre="check" />
+      <span>
+        <strong>{titulo}</strong> ¿Tu WordPress va lento o hace tiempo que no se actualiza? Lo revisamos y lo
+        mantenemos al día.{' '}
+        <a
+          href={SERVICIO_MANTENIMIENTO}
+          target="_blank"
+          rel="noopener"
+          onClick={() => medir('clic_servicio', { servicio: 'mantenimiento-wordpress', origen: 'exito_descarga' })}
+        >
+          Ver el mantenimiento de WordPress<span className="sr-only"> (se abre en una pestaña nueva)</span>
+        </a>
+      </span>
+    </p>
+  )
+}
 
 // Aviso junto a cada zona de subida: qué sale del navegador y a quién
 function AvisoIA({ children }) {
@@ -341,7 +376,7 @@ function csvSeo(items) {
   return new Blob(['﻿' + filas.map(f => f.map(celda).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
 }
 
-function OptimizerTab() {
+function OptimizerTab({ aviso, alDescargar }) {
   const [items, setItems]           = useState([])
   const [processing, setProcessing] = useState(false)
   const [progreso, setProgreso]     = useState(null)
@@ -404,6 +439,7 @@ function OptimizerTab() {
     medir('descargar', { origen: 'optimizador' })
     const name = item.seo?.filename || item.originalName.replace(/\.[^.]+$/, '') + '.webp'
     downloadBlob(item.webpBlob, name)
+    alDescargar('optimizador', listas.length > 1 ? 'Imágenes listas.' : 'Imagen lista.')
   }
 
   const listas = items.filter(i => i.status === 'done')
@@ -411,6 +447,7 @@ function OptimizerTab() {
   const downloadCsv = () => {
     medir('descargar_csv', { imagenes: listas.length })
     downloadBlob(csvSeo(listas), 'altdone-datos-seo.csv')
+    alDescargar('optimizador', 'Datos SEO listos.')
   }
   const processAll = () => procesar(items.filter(i => i.status === 'pending'))
   // Reintenta directamente las imágenes que fallaron
@@ -508,6 +545,8 @@ function OptimizerTab() {
             </button>
           </div>
 
+          {aviso?.origen === 'optimizador' && <AvisoExito titulo={aviso.titulo} />}
+
           <ul className="image-list">
             {items.map(item => (
               <ImageCard key={item.id} item={item} onDownload={downloadItem} onRemove={removeItem} />
@@ -520,7 +559,7 @@ function OptimizerTab() {
 }
 
 // ─── Editor IA Tab ────────────────────────────────────────────────────────────
-function EditorTab() {
+function EditorTab({ aviso, alDescargar }) {
   const [file, setFile]               = useState(null)
   const [previewSrc, setPreviewSrc]   = useState(null)
   const [prompt, setPrompt]           = useState('')
@@ -589,6 +628,7 @@ function EditorTab() {
     const name = seo?.filename || (file?.name.replace(/\.[^.]+$/, '') || 'imagen') + '-editada.webp'
     downloadBlob(result.blob, name)
     medir('descargar', { origen: 'editor' })
+    alDescargar('editor', 'Imagen lista.')
   }
 
   return (
@@ -717,6 +757,8 @@ function EditorTab() {
                 </button>
               </div>
 
+              {aviso?.origen === 'editor' && <AvisoExito titulo={aviso.titulo} />}
+
               {seo && (
                 <div className="result-meta">
                   {seo.error ? (
@@ -759,6 +801,14 @@ const PESTANAS = [
 
 function App() {
   const [tab, setTab]     = useState('optimizer')
+
+  // Aviso del servicio tras la primera descarga de la sesión
+  const [aviso, setAviso] = useState(null)
+  const alDescargar = useCallback((origen, titulo) => {
+    if (avisoYaMostrado()) return
+    marcarAvisoMostrado()
+    setAviso({ origen, titulo })
+  }, [])
 
   // Sin modo oscuro, como en el resto de platita.es: se borra la preferencia que guardaba la v1.1.0
   useEffect(() => {
@@ -813,11 +863,26 @@ function App() {
 
       <main id="contenido" tabIndex={-1}>
         <div className={`page${tab === 'optimizer' ? ' active' : ''}`} id="page-opt" role="tabpanel" aria-labelledby="tab-opt">
-          <OptimizerTab />
+          <OptimizerTab aviso={aviso} alDescargar={alDescargar} />
         </div>
         <div className={`page${tab === 'editor' ? ' active' : ''}`} id="page-ed" role="tabpanel" aria-labelledby="tab-ed">
-          <EditorTab />
+          <EditorTab aviso={aviso} alDescargar={alDescargar} />
         </div>
+
+        {/* Contacto discreto al final de la zona de trabajo (no flota sobre las acciones) */}
+        <p className="dudas">
+          <a
+            className="btn btn-secundario btn-dudas"
+            href={WHATSAPP_DUDAS}
+            target="_blank"
+            rel="noopener"
+            onClick={() => medir('dudas', { canal: 'whatsapp' })}
+          >
+            <IconoWhatsApp />
+            ¿Dudas? Escríbenos por WhatsApp
+            <span className="sr-only"> (se abre en una pestaña nueva)</span>
+          </a>
+        </p>
       </main>
 
       <footer className="pie">
