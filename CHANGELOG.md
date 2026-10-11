@@ -1,6 +1,11 @@
 # Changelog
 
-## [Sin publicar]
+## [1.1.1] - 2026-10-11
+### Eliminado
+- Modo oscuro (botón, tema según el sistema y estilos `body.dark`): platita.es no lo tiene y la herramienta
+  debe verse igual que el resto del sitio. Se borra la preferencia `altdone-tema` que guardaba la v1.1.0.
+  Si más adelante se añade en todo el sitio, se puede recuperar de la v1.1.0.
+
 ### Documentación
 - README al día con la v1.1.0: variables de entorno, API, estructura, seguridad y despliegue en Plesk
   (fuera las instrucciones antiguas de PM2 y `config.js`).

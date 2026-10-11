@@ -14,8 +14,6 @@ const TRAZOS = {
   arriba: <path d="M18 15l-6-6-6 6" />,
   cerrar: <path d="M18 6L6 18M6 6l12 12" />,
   copiar: <><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></>,
-  sol: <><circle cx="12" cy="12" r="4.5" /><path d="M12 1.5v2.5M12 20v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M1.5 12H4M20 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8" /></>,
-  luna: <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />,
 }
 
 export function Icono({ nombre, className = 'ico' }) {
