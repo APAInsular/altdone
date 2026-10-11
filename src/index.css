@@ -978,3 +978,28 @@ button.seo-value { width: 100%; border: none; text-align: left; font-size: 0.85r
   .actions .btn { flex: 1 1 auto; padding: 0 1rem; }
   .actions .btn-primary { flex-basis: 100%; }
 }
+
+/* ── AVISO EN EL MOMENTO DEL ÉXITO (tras la primera descarga) ── */
+.aviso-exito {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--green-fg);
+  border-radius: var(--radius-sm);
+  background: var(--green-bg);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.aviso-exito .ico { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--green-fg); }
+.aviso-exito a { color: var(--brand); font-weight: 600; }
+.aviso-exito a:hover { color: var(--brand-dark); }
+.result-actions + .aviso-exito { margin-top: 16px; text-align: left; }
+
+/* ── ¿DUDAS? (WhatsApp, al final de la zona de trabajo) ── */
+.dudas { margin-top: 40px; display: flex; justify-content: center; }
+.btn-dudas { text-decoration: none; }
+.btn-dudas .ico { width: 20px; height: 20px; }

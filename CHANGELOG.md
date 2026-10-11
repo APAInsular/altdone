@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.0] - 2026-10-11
+### Añadido
+- Aviso en el momento del éxito: tras la primera descarga de la sesión (imágenes, imagen editada o CSV), una
+  línea discreta bajo las acciones ofrece el mantenimiento de WordPress de Platita
+  (`/servicios/mantenimiento-wordpress-fuerteventura/` con `utm_content=exito_descarga`). Sin modal y sin tapar
+  nada; no se repite en la misma sesión (`sessionStorage`).
+- Enlace «¿Dudas? Escríbenos por WhatsApp» al final de la zona de trabajo (48 px, se abre en otra pestaña).
+- Eventos de Umami: `clic_servicio` (`servicio: mantenimiento-wordpress`, `origen: exito_descarga`) y `dudas`
+  (`canal: whatsapp`).
+
+
 ## [1.1.1] - 2026-10-11
 ### Eliminado
 - Modo oscuro (botón, tema según el sistema y estilos `body.dark`): platita.es no lo tiene y la herramienta
