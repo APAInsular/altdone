@@ -70,6 +70,25 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+// ─── Estadísticas (Umami sin cookies) y enlaces ─────────────────────────────
+// Si Umami no carga (bloqueador, local), la app sigue igual
+function medir(evento, datos) {
+  try { window.umami?.track(evento, datos) } catch { /* sin estadísticas */ }
+}
+
+const PLATITA = 'https://platita.es'
+const utm = contenido => `?utm_source=altdone&utm_medium=herramienta&utm_content=${contenido}`
+
+// Aviso junto a cada zona de subida: qué sale del navegador y a quién
+function AvisoIA({ children }) {
+  return (
+    <p className="aviso-ia">
+      {children} No guardamos tus imágenes; no subas fotos con datos personales de otras personas.{' '}
+      <a href={`${PLATITA}/privacidad/#platita-altdone-altdoneplatitaes`} target="_blank" rel="noopener">Cómo tratamos tus datos</a>
+    </p>
+  )
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────────
 // El servidor fija modelos y parámetros; aquí solo se envían la imagen y las instrucciones.
 // Antes de usar la IA se verifica una vez con Turnstile y el servidor da una cookie de sesión.
@@ -199,6 +218,7 @@ function SEOField({ label, value }) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard.writeText(value)
+    medir('copiar_campo', { campo: label })
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -328,6 +348,7 @@ function OptimizerTab() {
     setProcessing(true)
     const pending = items.filter(i => i.status === 'pending')
 
+    let correctas = 0
     for (const item of pending) {
       setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'compressing' } : x))
       try {
@@ -336,11 +357,13 @@ function OptimizerTab() {
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'analyzing', webpBlob, webpSize: webpBlob.size } : x))
         const seo = await analyzeSEO(webpB64, 'image/webp')
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'done', seo } : x))
+        correctas++
       } catch (err) {
         setItems(prev => prev.map(x => x.id === item.id ? { ...x, status: 'error', error: err.message } : x))
       }
     }
 
+    medir('procesar', { imagenes: pending.length, correctas, errores: pending.length - correctas })
     showToast('Imágenes procesadas correctamente')
     if (processBtnRef.current) confettiBurst(processBtnRef.current)
     setProcessing(false)
@@ -348,6 +371,7 @@ function OptimizerTab() {
 
   const downloadItem = item => {
     if (!item.webpBlob) return
+    medir('descargar', { origen: 'optimizador' })
     const name = item.seo?.filename || item.originalName.replace(/\.[^.]+$/, '') + '.webp'
     downloadBlob(item.webpBlob, name)
   }
@@ -393,6 +417,7 @@ function OptimizerTab() {
             <div className="drop-hint">PNG, JPG, WEBP o GIF · varias a la vez · máx. 4 MB cada una</div>
             <span className="drop-cta">o haz clic para elegirlas</span>
           </div>
+          <AvisoIA>La conversión a WebP se hace en tu navegador; para los datos SEO, la imagen se envía a Anthropic (Claude).</AvisoIA>
         </div>
       </div>
 
@@ -495,8 +520,10 @@ function EditorTab() {
       const webpBlob = await compressToWebP(blob)
       const webpB64  = await blobToBase64(webpBlob)
       setResult({ blob: webpBlob, src: 'data:image/webp;base64,' + webpB64 })
+      medir('editar', { ajuste: activePreset || 'propio', resultado: 'ok' })
     } catch (err) {
       setError(err.message)
+      medir('editar', { ajuste: activePreset || 'propio', resultado: 'error' })
     }
     setLoading(false)
   }
@@ -508,6 +535,7 @@ function EditorTab() {
       const b64  = await blobToBase64(result.blob)
       const data = await analyzeSEO(b64, 'image/webp')
       setSeo(data)
+      medir('seo_editor', { resultado: 'ok' })
     } catch (err) {
       setSeo({ error: err.message })
     }
@@ -518,6 +546,7 @@ function EditorTab() {
     if (!result) return
     const name = seo?.filename || (file?.name.replace(/\.[^.]+$/, '') || 'imagen') + '-editada.webp'
     downloadBlob(result.blob, name)
+    medir('descargar', { origen: 'editor' })
   }
 
   return (
@@ -565,6 +594,8 @@ function EditorTab() {
               </button>
             </div>
           )}
+
+          <AvisoIA>Para editarla, la imagen y tus instrucciones se envían a Google (Gemini); si pides los datos SEO, a Anthropic (Claude).</AvisoIA>
 
           <div className="presets-card">
             <div className="presets-label">Ajustes rápidos</div>
@@ -725,7 +756,7 @@ function App() {
             className={`nav-tab${tab === 'optimizer' ? ' active' : ''}`}
             href="#"
             id="tab-opt"
-            onClick={e => { e.preventDefault(); setTab('optimizer') }}
+            onClick={e => { e.preventDefault(); setTab('optimizer'); medir('pestana', { pestana: 'optimizador' }) }}
           >
             Optimizador
           </a>
@@ -733,7 +764,7 @@ function App() {
             className={`nav-tab${tab === 'editor' ? ' active' : ''}`}
             href="#"
             id="tab-ed"
-            onClick={e => { e.preventDefault(); setTab('editor') }}
+            onClick={e => { e.preventDefault(); setTab('editor'); medir('pestana', { pestana: 'editor' }) }}
           >
             Editor IA
           </a>
@@ -759,6 +790,22 @@ function App() {
           <EditorTab />
         </div>
       </main>
+
+      <footer className="pie">
+        <div className="pie-dentro">
+          <a className="pie-marca" href={`${PLATITA}/${utm('pie')}`}>
+            <img src={logoBlanco} alt="Platita AltDone" />
+          </a>
+          <p className="pie-texto">
+            Una herramienta de <a href={`${PLATITA}/${utm('pie')}`}>Platita Software</a>, en Canarias.
+          </p>
+          <ul className="pie-legal">
+            <li><a href={`${PLATITA}/aviso-legal/`}>Aviso legal</a></li>
+            <li><a href={`${PLATITA}/privacidad/#platita-altdone-altdoneplatitaes`}>Privacidad</a></li>
+            <li><a href={`${PLATITA}/cookies/`}>Cookies</a></li>
+          </ul>
+        </div>
+      </footer>
     </>
   )
 }

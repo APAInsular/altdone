@@ -1034,3 +1034,47 @@ body.dark .btn-sweep {
   transform: translateX(-50%);
   z-index: 10000;
 }
+
+/* ── AVISO DE PRIVACIDAD junto a las zonas de subida ── */
+.aviso-ia {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.aviso-ia a { color: var(--brand); font-weight: 600; }
+.aviso-ia a:hover { color: var(--brand-dark); }
+
+/* ── PIE (noche, como platita.es) ── */
+.pie {
+  margin-top: clamp(48px, 8vw, 96px);
+  background: var(--noche);
+  color: var(--claro-2);
+}
+
+.pie-dentro {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px clamp(16px,4vw,32px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+}
+
+.pie-marca { display: inline-flex; align-items: center; min-height: var(--tap); }
+.pie-marca img { height: 36px; width: auto; display: block; }
+.pie-texto { font-size: 0.9rem; flex: 1 1 220px; }
+.pie a { color: var(--claro); }
+.pie a:hover { color: var(--cielo); }
+
+.pie-legal {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+  font-size: 0.9rem;
+}
+
+.pie-legal a { display: inline-flex; align-items: center; min-height: var(--tap); text-decoration: none; }

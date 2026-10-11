@@ -14,6 +14,13 @@
   «Ajustes rápidos», «Vaciar la lista»; los botones de solo icono tienen nombre accesible.
 - Vite copia `static/` (favicon) a `public/` y solo limpia `public/assets` al compilar: ya no borra
   `public/.php-ini` ni `.php-version` del servidor.
+- Estadísticas con Umami propio (`stats.javierjg.es`, sitio `altdone.platita.es`), sin cookies (paso 2).
+  Eventos anónimos: `procesar` (imágenes, correctas y errores), `descargar`, `copiar_campo`, `editar`
+  (ajuste y resultado), `seo_editor` y `pestana`. La CSP del servidor admite `stats.javierjg.es`.
+- Aviso junto a cada zona de subida: qué se hace en el navegador, a quién se envía la imagen (Anthropic para
+  el SEO, Google para la edición), que no se guarda y que no conviene subir datos personales de terceros.
+- Pie en noche con el logo, enlace a platita.es con UTM (`utm_source=altdone`) y enlaces a aviso legal,
+  privacidad (sección de AltDone) y cookies.
 ### Eliminado
 - Marco 3D giratorio del logo (el manual de marca no permite rotar ni deformar el logo).
 

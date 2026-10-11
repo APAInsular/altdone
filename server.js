@@ -43,11 +43,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://challenges.cloudflare.com'],
+      scriptSrc: ["'self'", 'https://challenges.cloudflare.com', 'https://stats.javierjg.es'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://stats.javierjg.es'],
       frameSrc: ['https://challenges.cloudflare.com'],
       workerSrc: ["'self'", 'blob:'],
       frameAncestors: ["'none'"],
