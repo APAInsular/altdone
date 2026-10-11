@@ -415,7 +415,12 @@ const serveIndex = (_req, res) => {
 app.get('/', serveIndex);
 app.get('/index.html', serveIndex);
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', serveIndex);
+
+// La app no tiene más rutas: el resto es 404 (antes devolvía la app con un 200 y Google podía
+// indexar duplicados)
+app.use((_req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
 
 app.listen(config.port, () => {
   console.log(`altdone en http://localhost:${config.port}`);
