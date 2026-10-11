@@ -757,26 +757,13 @@ const PESTANAS = [
   { id: 'editor', tabId: 'tab-ed', panelId: 'page-ed', nombre: 'Editor IA', evento: 'editor' },
 ]
 
-// Tema inicial: el que eligió la persona antes o, si no, el del sistema
-function temaInicial() {
-  try {
-    const guardado = localStorage.getItem('altdone-tema')
-    if (guardado) return guardado === 'oscuro'
-  } catch { /* almacenamiento no disponible */ }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-}
-
 function App() {
   const [tab, setTab]     = useState('optimizer')
-  const [isDark, setIsDark] = useState(temaInicial)
-  const isFirstDarkRef    = useRef(true)
 
-  // Modo oscuro: se guarda la elección a partir del primer cambio
+  // Sin modo oscuro, como en el resto de platita.es: se borra la preferencia que guardaba la v1.1.0
   useEffect(() => {
-    document.body.classList.toggle('dark', isDark)
-    if (isFirstDarkRef.current) { isFirstDarkRef.current = false; return }
-    try { localStorage.setItem('altdone-tema', isDark ? 'oscuro' : 'claro') } catch { /* sin almacenamiento */ }
-  }, [isDark])
+    try { localStorage.removeItem('altdone-tema') } catch { /* sin almacenamiento */ }
+  }, [])
 
   function cambiarPestana(id) {
     setTab(id)
@@ -800,8 +787,7 @@ function App() {
 
       <nav>
         <a className="logo" href="/">
-          <img className="logo-claro" src={logoAzul} alt="Platita AltDone" />
-          <img className="logo-oscuro" src={logoBlanco} alt="Platita AltDone" />
+          <img src={logoAzul} alt="Platita AltDone" />
         </a>
 
         <div className="nav-pills" role="tablist" aria-label="Herramientas">
@@ -823,15 +809,6 @@ function App() {
           ))}
         </div>
 
-        <button
-          className="theme-btn"
-          id="themeBtn"
-          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          onClick={() => setIsDark(d => !d)}
-        >
-          <span className="theme-icon theme-icon--sun"><Icono nombre="sol" /></span>
-          <span className="theme-icon theme-icon--moon"><Icono nombre="luna" /></span>
-        </button>
       </nav>
 
       <main id="contenido" tabIndex={-1}>

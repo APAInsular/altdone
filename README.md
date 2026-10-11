@@ -17,8 +17,7 @@ blanco, mejorar la calidad…).
   (punto y coma y BOM, para que Excel lea bien las tildes).
 - **Privacidad:** a la IA solo se envía una copia reducida de cada imagen y el servidor
   no guarda imágenes ni instrucciones. Estadísticas con Umami, sin cookies.
-- **Accesible:** WCAG 2.2 AA (teclado, lectores de pantalla, movimiento reducido,
-  modo oscuro según el sistema).
+- **Accesible:** WCAG 2.2 AA (teclado, lectores de pantalla y movimiento reducido).
 
 ## Requisitos
 - Node.js 22+
